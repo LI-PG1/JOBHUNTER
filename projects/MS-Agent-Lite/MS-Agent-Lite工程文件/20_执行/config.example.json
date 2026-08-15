@@ -1,0 +1,41 @@
+{
+  "providers": [
+    {
+      "name": "zhipu-vision",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "model": "glm-4v-flash",
+      "apiKey": "",
+      "enabled": true,
+      "cap": ["vision"],
+      "maxOutputTokens": 1024
+    },
+    {
+      "name": "zhipu-text",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "model": "glm-4-flash",
+      "apiKey": "",
+      "enabled": true,
+      "cap": ["text"],
+      "maxOutputTokens": 4096
+    },
+    {
+      "name": "siliconflow",
+      "baseUrl": "https://api.siliconflow.cn/v1/chat/completions",
+      "model": "THUDM/GLM-4.1V-9B-Thinking",
+      "apiKey": "",
+      "enabled": true,
+      "cap": ["vision"],
+      "maxOutputTokens": 4096
+    },
+    {
+      "name": "volc",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+      "model": "doubao-1.5-vision-pro",
+      "apiKey": "",
+      "enabled": false,
+      "cap": ["vision"],
+      "maxOutputTokens": 4096
+    }
+  ],
+  "webSearch": { "provider": "tavily", "apiKey": "" }
+}

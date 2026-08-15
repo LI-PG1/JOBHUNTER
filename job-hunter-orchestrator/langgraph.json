@@ -1,0 +1,7 @@
+{
+  "dependencies": ["langgraph", "httpx", "pydantic"],
+  "graphs": {
+    "job_hunter": "./graph/build.py:build_graph"
+  },
+  "env": ".env"
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "行业本体 Schema",
+  "description": "JS-Agent 核心规则库：行业本体。每个行业含 id/名称/代表公司/关键词，用于岗位按行业归类与公司匹配。",
+  "type": "object",
+  "required": ["version", "industries"],
+  "properties": {
+    "version": { "type": "string" },
+    "industries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "companies": { "type": "array", "items": { "type": "string" }, "description": "代表公司（种子岗位数据与联网搜索结果的行业归类）" },
+          "keywords": { "type": "array", "items": { "type": "string" }, "description": "行业关键词（用于 JD/公司描述匹配）" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>{{姓名}}个人简历（两页版）</title>
+<!--
+  简历生成助手简历模板 · 两页版（单栏 · ATS 友好 · 宽松 · 动态适配）
+  设计依据：2026 ATS 简历规范（单栏布局、标准字体、11pt 正文、
+            0.7-1" 页边距、标准板块命名、时间倒序、标准圆点）。
+  布局标准化（§6.9）：A4 210×297mm；页边距 18mm 四边；正文基线 11pt / 行距 1.5 / 区块间距 14px。
+  动态适配（配合生成引擎 §6.7）：
+    - 排版层稠密度（body[data-density]，全部板块全局参与）：字号/行距/区块间距/要点间距/列表缩进统一调整；
+    - 内容层弹性（生成引擎控制）：详略档（详细/标准/精简）+ 数量档（条数/要点数/句数），作用于描述性板块；
+    - 内容关键性分级（criticality）：critical 项绝不裁剪，压缩按 low→medium→high→critical 顺序；
+    - 可隐藏区块（非常驻）：实习经历、证书荣誉——未填充时由引擎删除对应 .section 节点。
+  占位符：所有 {{字段}} 由生成引擎装配注入；未填写的可选字段整段删除。
+  简历成品不展示"目标岗位/职业方向"字段（一对一投递，信息已体现在求职信/投递信息中）。
+  分页：默认自然分页；如需强制换页，在对应 .section 前加 class="page-break"。
+  照片：可选，默认隐藏，位于右上角（专业简历规范位置）；外企/ATS 系统建议移除。
+  打印：浏览器直接打印（Ctrl+P），A4，页边距 18mm。
+-->
+<style>
+  :root{
+    --ink:#1f2937;
+    --muted:#6b7280;
+    --line:#cbd5e1;
+    --accent:#1e3a5f;        /* 单强调色（深蓝） */
+    --photo-w:76px; --photo-h:101px;  /* 照片位 3:4 */
+    --gap:14px;              /* 区块间距（排版层密度档覆盖） */
+    --lheight:1.5;           /* 行距（排版层密度档覆盖） */
+    --body-size:11pt;        /* 正文字号（排版层密度档覆盖） */
+    --li-margin:2px;         /* 要点间距（排版层密度档覆盖） */
+    --li-indent:16px;        /* 列表缩进（排版层密度档覆盖） */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  @page{size:A4;margin:18mm}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Helvetica Neue",Arial,sans-serif;
+    color:var(--ink);line-height:var(--lheight);background:#fff;font-size:var(--body-size);
+  }
+  /* ---------- 排版层密度档：compact / normal / loose（全部板块全局参与，字号/行距/间距/缩进统一调整） ---------- */
+  body[data-density="compact"]{--gap:9px;--lheight:1.4;--body-size:10.5pt;--li-margin:1px;--li-indent:12px}
+  body[data-density="normal"]{--gap:14px;--lheight:1.5;--body-size:11pt;--li-margin:2px;--li-indent:16px}
+  body[data-density="loose"]{--gap:20px;--lheight:1.62;--body-size:11.5pt;--li-margin:4px;--li-indent:20px}
+  /* ---------- 头部（视觉层级 1）：姓名 + 照片（右上） ---------- */
+  .header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--ink);padding-bottom:10px}
+  .name{font-size:20pt;font-weight:700;letter-spacing:1px}
+  .photo{flex:0 0 auto;width:var(--photo-w);height:var(--photo-h);border-radius:4px;overflow:hidden}
+  .photo img{width:100%;height:100%;object-fit:cover;display:block}
+  .photo.placeholder{border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:9pt;background:#f8fafc}
+  .photo.empty{display:none}
+  /* ---------- 联系方式 ---------- */
+  .contact{display:flex;flex-wrap:wrap;gap:3px 20px;padding:8px 0 10px;font-size:10pt;color:var(--muted)}
+  .contact b{color:var(--ink);font-weight:600}
+  /* ---------- 职业概述 ---------- */
+  .summary{font-size:var(--body-size);color:var(--ink);line-height:1.7}
+  /* ---------- 版块 ---------- */
+  .section{margin-top:var(--gap)}
+  .sec-title{
+    font-size:12pt;font-weight:700;color:var(--accent);
+    border-bottom:1px solid var(--line);padding-bottom:3px;margin-bottom:7px;letter-spacing:1px;
+    page-break-after:avoid;break-after:avoid;   /* 标题与首个条目保持同页，避免孤悬页尾 */
+  }
+  /* ---------- 条目 ---------- */
+  .item{margin-top:9px;page-break-inside:avoid}
+  .item-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .item-title{font-size:11.5pt;font-weight:700}
+  .item-sub{font-size:10.5pt;color:#374151}
+  .item-time{margin-left:auto;font-size:10pt;color:var(--muted);white-space:nowrap}
+  .item-body{font-size:var(--body-size);margin-top:2px;color:#374151}
+  .item-body ul{list-style:disc;margin:var(--li-margin) 0 0 var(--li-indent)}
+  .item-body li{margin:var(--li-margin) 0}
+  .tech{font-size:var(--body-size)}
+  .tech b{font-weight:700;color:var(--ink)}
+  /* ---------- 实习主要职责概述（高密度结构） ---------- */
+  .duty-overview{font-size:var(--body-size);margin-top:3px;color:#374151;line-height:1.6}
+  .duty-overview b{font-weight:700;color:var(--ink)}
+  /* ---------- 技能特长（单列行内） ---------- */
+  .skill-row{font-size:var(--body-size);margin-top:3px;color:#374151;page-break-inside:avoid;line-height:1.6}
+  .skill-cat{font-weight:700;color:var(--ink)}
+  .skill-cat::after{content:"：";font-weight:400}
+  /* ---------- 证书荣誉（列表） ---------- */
+  .honor{font-size:var(--body-size);margin-top:3px;color:#374151;page-break-inside:avoid}
+  .honor b{color:var(--ink)}
+  /* ---------- 强制分页 ---------- */
+  .page-break{page-break-before:always;break-before:page}
+  /* ---------- 水印区（方案二：有水印模式注入，默认隐藏） ---------- */
+  .watermark{display:none}
+  .watermark.on{display:block;margin-top:14px;padding:8px 12px;background:#fff7ed;border:1px solid #fdba74;border-radius:4px;font-size:9.5pt;color:#9a3412;text-align:center}
+  /* ---------- 页脚 ---------- */
+  .page-footer{margin-top:16px;padding-top:8px;border-top:1px solid var(--line);font-size:9.5pt;color:var(--muted);text-align:center}
+  /* ---------- 打印 ---------- */
+  @media print{
+    body{background:#fff}
+    .photo.placeholder{display:none}
+  }
+</style>
+</head>
+<body data-density="normal">
+
+<!-- ========== 头部：{姓名}个人简历 + 照片（右上） ========== -->
+<div class="header">
+  <div class="name">{{姓名}}个人简历</div>
+  <!-- 照片填充区（可选）：img 由前端注入；未上传时保持 class="photo empty" -->
+  <div class="photo empty" id="photo-slot">{{照片}}</div>
+</div>
+
+<!-- ========== 联系方式 ========== -->
+<div class="contact">
+  <span>电话：<b>{{电话}}</b></span>
+  <span>邮箱：<b>{{邮箱}}</b></span>
+  <span>{{个人网页}}</span>
+  <span>base：{{base}}</span>
+  <span>{{可实习时长}}</span>
+  <span>{{到岗时间}}</span>
+</div>
+
+<!-- ========== 自我评价（常驻弹性板块：1~3 句；内容层弹性——句数/详略由生成引擎控制；排版层全局参与） ========== -->
+<div class="section">
+  <div class="sec-title">自我评价</div>
+  <div class="summary">{{一句话定位 + 2~3 条核心优势（自然融入方向，不单独展示目标岗位字段）}}</div>
+</div>
+
+<!-- ========== 教育背景（时间倒序，可详细） ========== -->
+<div class="section">
+  <div class="sec-title">教育背景</div>
+  <div class="item">
+    <div class="item-head">
+      <span class="item-title">{{学校名称}}</span>
+      <span class="item-sub">{{专业名称}} · {{学位类型}}</span>
+      <span class="item-time">{{起止 YYYY.MM—YYYY.MM}}</span>
+    </div>
+    <div class="item-body">
+      <ul>
+        <li>{{GPA / 排名（如适用）}}</li>
+        <li>{{主修课程 / 获奖 / 学生工作，2~3 行}}</li>
+      </ul>
+    </div>
+  </div>
+  <!-- 教育经历可多条，重复 .item -->
+</div>
+
+<!-- ========== 实习经历（非常驻弹性板块：未填写时整块删除/隐藏；要点数/详略由引擎控制；排版层全局参与） ========== -->
+<div class="section" id="sec-internship">
+  <div class="sec-title">实习经历</div>
+  <div class="item">
+    <div class="item-head">
+      <span class="item-title">{{公司名称}}</span>
+      <span class="item-sub">{{职位}}</span>
+      <span class="item-time">{{起止时间}}</span>
+    </div>
+    <div class="item-body">
+      <ul>
+        <li>{{动作动词开头的职责与量化成果 1}}</li>
+        <li>{{职责与量化成果 2}}</li>
+        <li>{{职责与量化成果 3}}</li>
+      </ul>
+    </div>
+  </div>
+  <!-- 实习经历输入上限 2 段；可多条，重复 .item -->
+</div>
+
+<!-- ========== 项目经验（常驻弹性板块：STAR 融入自然段落，无 S/T/A/R 标识；条数按硬性规则——实习 0/1/2 → 3/2/1 条；要点/详略由引擎控制；排版层全局参与） ========== -->
+<div class="section" id="sec-projects">
+  <div class="sec-title">项目经验</div>
+  <div class="item">
+    <div class="item-head">
+      <span class="item-title">{{项目名称}}</span>
+      <span class="item-sub">{{角色}}</span>
+      <span class="item-time">{{起止时间}}</span>
+    </div>
+    <div class="item-body">
+      <div class="tech"><b>技术栈：</b>{{技术栈列表}}</div>
+      <ul>
+        <li>{{背景与任务描述（自然语言，无 S/T 标识）}}</li>
+        <li>{{个人行动与方案（自然语言，含技术选型与协作）}}</li>
+        <li>{{量化成果（自然语言，含合理量化数值）}}</li>
+      </ul>
+    </div>
+  </div>
+  <!-- 项目条数按硬性规则：1~3 条（实习 0/1/2 → 3/2/1，§6.4）；要点数由引擎按空间增减 -->
+</div>
+
+<!-- ========== 技能特长（必填区块；如需第二页起，给本区加 class="section page-break"） ========== -->
+<div class="section" id="sec-skills">
+  <div class="sec-title">技能特长</div>
+  <div class="skill-row"><span class="skill-cat">专业技能</span>{{技能 1、技能 2、技能 3、技能 4}}</div>
+  <div class="skill-row"><span class="skill-cat">工具与框架</span>{{工具 1、工具 2、工具 3}}</div>
+  <div class="skill-row"><span class="skill-cat">语言能力</span>{{语言 1（等级）、语言 2（等级）}}</div>
+  <!-- 技能必填；技能拓展由引擎按 JD 补充（用户勾选时），未勾选仅分类排版 -->
+</div>
+
+<!-- ========== 证书荣誉（弹性区块：未填写时整块删除/隐藏） ========== -->
+<div class="section" id="sec-honors">
+  <div class="sec-title">证书荣誉</div>
+  <div class="honor"><b>{{奖项/证书名称}}</b> · {{颁发机构}} · {{获得时间}}</div>
+  <div class="honor"><b>{{奖项/证书名称}}</b> · {{颁发机构}} · {{获得时间}}</div>
+  <!-- 可多条，重复 .honor；引擎在无荣誉数据时移除本 section -->
+</div>
+
+<!-- ========== 水印区（有水印模式注入预设提示语句） ========== -->
+<div class="watermark" id="watermark">{{有水印模式提示语句：本简历部分内容由 AI 生成，请确认真实性}}</div>
+
+<!-- ========== 页脚 ========== -->
+<div class="page-footer">{{姓名}} · {{邮箱}} · {{电话}}</div>
+
+</body>
+</html>

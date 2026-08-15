@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>面试准备助手（纯文本版）交互式安装使用指南</title>
+<style>
+  :root{
+    --ink:#0f172a; --ink-soft:#475569; --ink-dim:#94a3b8;
+    --line:#e2e8f0; --bg:#f8fafc; --card:#fff;
+    --blue:#2563eb; --green:#16a34a; --amber:#d97706; --red:#dc2626;
+    --code-bg:#0f172a; --code-ink:#e2e8f0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.7}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ---------- 悬浮流程图（左侧边缘，悬停展开节点） ---------- */
+  .rail{
+    position:fixed;left:12px;top:50%;transform:translateY(-50%);z-index:60;
+    display:flex;flex-direction:column;align-items:flex-start;gap:0;
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:14px;
+    padding:12px 10px;box-shadow:0 4px 16px rgba(15,23,42,.08);
+    backdrop-filter:blur(4px);
+  }
+  .rail-item{display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0;user-select:none}
+  .rail-item .dot{
+    width:15px;height:15px;border-radius:50%;flex:none;
+    border:2px solid #cbd5e1;background:#fff;transition:all .25s;
+  }
+  /* 节点默认只显示圆点；悬停时展开阶段名称 */
+  .rail-item .lab{
+    font-size:12px;color:var(--ink-dim);white-space:nowrap;letter-spacing:.3px;
+    max-width:0;opacity:0;overflow:hidden;pointer-events:none;
+    transition:max-width .22s ease, opacity .18s ease .04s, color .25s;
+  }
+  .rail-item:hover .lab{max-width:200px;opacity:1;color:var(--ink)}
+  .rail-line{width:2px;height:10px;margin-left:6.5px;background:#e2e8f0;transition:background .25s}
+  .rail-item.done .dot{background:var(--green);border-color:var(--green)}
+  .rail-item.done .lab{color:var(--green);font-weight:600}
+  .rail-item.done ~ .rail-line{background:var(--green)}
+  .rail-item.active .dot{
+    background:var(--blue);border-color:var(--blue);
+    box-shadow:0 0 0 5px rgba(37,99,235,.16);transform:scale(1.15);
+  }
+  .rail-item.active .lab{color:var(--blue);font-weight:700}
+  @media (max-width:900px){
+    .rail{left:6px;padding:8px 6px}
+    .rail-item .lab{display:none}
+    .rail-item .dot{width:16px;height:16px}
+  }
+
+  /* ---------- 主体 ---------- */
+  main{max-width:980px;margin:0 auto;padding:40px 130px 80px 40px}
+  header.hero{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-radius:18px;padding:34px 34px 28px;margin-bottom:26px}
+  header.hero h1{font-size:26px;margin-bottom:8px}
+  header.hero p.sub{opacity:.92;font-size:14px}
+  .caps{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .cap{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 12px;font-size:12px}
+  .save-tip{margin-top:16px;font-size:12px;background:rgba(0,0,0,.18);border-radius:8px;padding:8px 12px;display:inline-block}
+  .sec{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px 26px;margin-bottom:20px;scroll-margin-top:16px;
+  }
+  .sec h2{display:flex;align-items:center;gap:10px;font-size:18px;margin-bottom:6px}
+  .sec .step-no{
+    flex:none;width:28px;height:28px;border-radius:50%;background:#eff6ff;color:var(--blue);
+    border:1px solid #bfdbfe;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;
+  }
+  .sec .desc{color:var(--ink-soft);font-size:14px;margin-bottom:12px}
+  .sec h3{font-size:14px;color:var(--ink);margin:16px 0 6px}
+  .note{background:#fffbeb;border-left:3px solid var(--amber);border-radius:8px;padding:10px 14px;font-size:13px;margin:10px 0}
+  .warn{background:#fef2f2;border-left:3px solid var(--red);border-radius:8px;padding:10px 14px;font-size:13px;margin:10px 0}
+  .ok{background:#f0fdf4;border-left:3px solid var(--green);border-radius:8px;padding:10px 14px;font-size:13px;margin:10px 0}
+  .term{background:#f1f5f9;border:1px dashed #94a3b8;border-radius:8px;padding:8px 12px;font-size:12.5px;color:#334155;margin:8px 0}
+  .flow{
+    background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:10px;
+    padding:14px 18px;margin:10px 0;font-family:Consolas,"Courier New",monospace;
+    font-size:13.5px;line-height:2;overflow-x:auto;white-space:pre;
+  }
+  pre{
+    background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:12px 16px;
+    font-family:Consolas,"Courier New",monospace;font-size:13px;overflow-x:auto;margin:8px 0;
+  }
+  code.inline{background:#eef2ff;color:#3730a3;border-radius:4px;padding:1px 6px;font-size:13px;font-family:Consolas,monospace}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+  th{background:#f1f5f9}
+  ul,ol{padding-left:22px;font-size:14px}
+  li{margin:4px 0}
+  details{border:1px solid var(--line);border-radius:10px;margin:8px 0;background:#fff}
+  summary{cursor:pointer;padding:12px 16px;font-weight:600;font-size:14px;list-style:none;display:flex;align-items:center;gap:8px}
+  summary::before{content:"▸";color:var(--blue);transition:transform .2s}
+  details[open] summary::before{transform:rotate(90deg)}
+  details .faq-body{padding:0 16px 14px;font-size:13px;color:var(--ink-soft)}
+  footer{margin-top:26px;text-align:center;color:var(--ink-dim);font-size:13px}
+  .to-top{
+    position:fixed;right:22px;bottom:22px;width:40px;height:40px;border-radius:50%;
+    background:var(--blue);color:#fff;border:none;cursor:pointer;font-size:18px;
+    box-shadow:0 4px 12px rgba(37,99,235,.35);z-index:60;opacity:0;pointer-events:none;transition:opacity .3s;
+  }
+  .to-top.show{opacity:1;pointer-events:auto}
+  .file-tree{font-family:Consolas,monospace;font-size:12.5px;background:#f1f5f9;border-radius:10px;padding:12px 16px;overflow-x:auto;margin:8px 0;line-height:1.6}
+  @media (max-width:640px){
+    main{padding:20px 16px 80px}
+    .sec{padding:16px}
+  }
+</style>
+</head>
+<body>
+
+<!-- 悬浮流程图 -->
+<div class="rail" id="rail" aria-label="步骤进度"></div>
+<button class="to-top" id="toTop" title="回到顶部">↑</button>
+
+<main>
+  <header class="hero">
+    <h1>📘 面试准备助手（纯文本版）交互式安装使用指南</h1>
+    <p class="sub">上传简历 + 岗位 JD，一键生成专属的面试准备材料（一个网页文件）：自我介绍、项目深挖、面试题库、反问环节等，可打印、可随时复习。全程零代码，跟着下面的步骤走即可。</p>
+    <div class="caps">
+      <span class="cap">零代码</span><span class="cap">仅 Windows</span><span class="cap">自配 API</span>
+      <span class="cap">8 文件自动生成</span><span class="cap">内容审核</span><span class="cap">可离线单文件</span>
+    </div>
+    <div class="save-tip">💾 想离线保存？右键本页 →「另存为」→ 保存为 .html 即可，本文件自带样式与逻辑，无需联网。</div>
+    <p class="save-tip" style="display:block;margin-top:8px">🔢 <b>步骤编号对照</b>：本页与《新手安装使用指南.md》内容一致；因 Markdown 版多了一个「第 0 步 先搞懂」，<b>本页第 N 步 = Markdown 版第 N-1 步</b>（如「填 API Key」：本页第 5 步 = 文字版第 4 步）。任选一份照做即可。</p>
+  </header>
+
+  <!-- 1 认识面试准备助手 -->
+  <section class="sec" data-step="1" id="s1">
+    <h2><span class="step-no">1</span>认识面试准备助手</h2>
+    <p class="desc">先用 30 秒搞懂它能干什么，再动手装。</p>
+    <ul>
+      <li><b>输入</b>：你的简历（pdf / word / txt / markdown）+ 岗位 JD（职位介绍）+ 可选的参考网址 / 参考信息（面经、公司背景、技术文章等文字）</li>
+      <li><b>输出</b>：一份完整的「<b>岗位名称+面试准备.html</b>」网页材料（自我介绍、项目深挖、技术题库、反问环节等 8 个部分）</li>
+      <li><b>工作方式</b>：你配置的大模型负责生成内容，面试准备助手在本地处理文件与网页、生成并预览材料</li>
+      <li><b>适合谁</b>：零编程经验也能装。需要准备 3 样：Windows 电脑、一个或两个大模型 API Key（第 2 步教怎么拿）、项目文件（第 3 步下载）</li>
+    </ul>
+    <h3>整体流程一览</h3>
+    <div class="flow">拿 API Key → 下载项目 → 双击 启动面试准备助手.bat（首次自动解压内置运行环境）
+    → 浏览器自动打开 → 填 API Key → 上传简历 + 填 JD → 一键生成 → 审核通过 ✓</div>
+    <div class="note">📌 全程不需要写代码、不需要自己安装 Node.js。遇到问题先看第 7 步 FAQ，或按错误提示操作。</div>
+  </section>
+
+  <!-- 2 API Key -->
+  <section class="sec" data-step="2" id="s2">
+    <h2><span class="step-no">2</span>拿到「大模型钥匙」API Key</h2>
+    <p class="desc">面试准备助手调用大模型需要一把"钥匙"。建议最先做这步，因为部分平台要审核。点击下面的链接可直达各平台，每个平台都附有详细的领取步骤。</p>
+    <table>
+      <tr><th>服务商</th><th>官网</th><th>说明</th></tr>
+      <tr><td>智谱 AI</td><td><a href="https://open.bigmodel.cn" target="_blank" rel="noopener">open.bigmodel.cn ↗</a></td><td>有长期免费文本模型 <code class="inline">glm-4-flash</code>，低成本实现（本版只需文本模型）</td></tr>
+      <tr><td>硅基流动</td><td><a href="https://cloud.siliconflow.cn" target="_blank" rel="noopener">cloud.siliconflow.cn ↗</a></td><td>有免费模型，注册即用</td></tr>
+      <tr><td>DeepSeek</td><td><a href="https://platform.deepseek.com" target="_blank" rel="noopener">platform.deepseek.com ↗</a></td><td>便宜、能力强，新用户送免费额度</td></tr>
+    </table>
+
+    <details>
+      <summary>智谱 AI — 获取 API Key（点击查看详细步骤）</summary>
+      <div class="faq-body">
+        <ol>
+          <li>浏览器打开 <a href="https://open.bigmodel.cn" target="_blank" rel="noopener">open.bigmodel.cn</a>，手机号注册并登录</li>
+          <li>完成<b>实名认证</b>（官方要求，认证后才能创建 API Key）</li>
+          <li>进入「个人中心 → API Keys」，点「新建 API Key」</li>
+          <li>生成后<b>立即复制保存</b>（只显示一次），并对照记下模型名与 Base URL</li>
+        </ol>
+        <p>低成本实现：模型 <code class="inline">glm-4-flash</code>（长期免费）或选 <b>DeepSeek-V4-Flash</b>（页面「① 厂商 → ② 选择模型」选中即自动填好）；Base URL <code class="inline">https://open.bigmodel.cn/api/paas/v4/chat/completions</code>；能力选择「文本能力模型」。</p>
+      </div>
+    </details>
+    <details>
+      <summary>硅基流动 — 获取 API Key（点击查看详细步骤）</summary>
+      <div class="faq-body">
+        <ol>
+          <li>浏览器打开 <a href="https://cloud.siliconflow.cn" target="_blank" rel="noopener">cloud.siliconflow.cn</a>，手机号或邮箱注册并登录</li>
+          <li>完成<b>实名认证</b>（用户中心 → 实名认证，人脸识别几分钟通过；不认证拿不到免费额度）</li>
+          <li>进入「API 密钥」页面，点「新建 API 密钥」</li>
+          <li>创建后<b>点击密钥即可复制</b>，妥善保存（仅显示一次）</li>
+        </ol>
+        <p>低成本实现：模型从「模型广场」选一个免费文本模型；Base URL <code class="inline">https://api.siliconflow.cn/v1/chat/completions</code>；能力选择「文本能力模型」。</p>
+      </div>
+    </details>
+    <details>
+      <summary>DeepSeek — 获取 API Key（点击查看详细步骤）</summary>
+      <div class="faq-body">
+        <ol>
+          <li>浏览器打开 <a href="https://platform.deepseek.com" target="_blank" rel="noopener">platform.deepseek.com</a>，手机号或邮箱注册并登录</li>
+          <li>新用户注册即送免费额度，无需绑定银行卡</li>
+          <li>进入「API Keys」，点「Create API Key」，起个名字（如 ms-agent）</li>
+          <li>生成后<b>立即复制</b>——Key 只显示一次，关闭就看不到了</li>
+        </ol>
+        <p>低成本实现：模型选 <b>DeepSeek-V4-Flash</b>（价格低、Agent 能力强，新用户送免费额度；页面「① 厂商 → ② 选择模型」选中即自动填好）；Base URL <code class="inline">https://api.deepseek.com/v1/chat/completions</code>；能力选择「文本能力模型」——本版只需一个文本模型。</p>
+      </div>
+    </details>
+
+    <div class="note">📌 无论选哪家，最后都要在记事本里记下 4 个信息：<b>API Key</b>、<b>Base URL（接口地址）</b>、<b>模型名</b>、<b>能力选择（第 5 步界面默认「文本能力模型」）</b>。第 5 步填 Key 时会用到。</div>
+    <div class="warn">⚠ 安全：API Key 相当于你的钱和隐私，不要发给任何人、不要传到群聊。泄露了立即去后台「删除/重置」。</div>
+    <div class="ok">✔ 检查：记事本里已存好 4 个信息，可进入下一步。</div>
+  </section>
+
+  <!-- 3 下载项目 -->
+  <section class="sec" data-step="3" id="s3">
+    <h2><span class="step-no">3</span>下载项目</h2>
+    <p class="desc">本项目文档托管在 GitHub，直接访问：<code class="inline">https://github.com/LI-PG1/MS-Agent-Lite</code>。以下两种方式任选其一。</p>
+    <h3>方式 A（最简单，不用装 Git）：网页下载 ZIP</h3>
+    <ol>
+      <li>浏览器打开上面的仓库链接</li>
+      <li>点绿色 <b>Code</b> 按钮 → 点 <b>Download ZIP</b></li>
+      <li>右键压缩包 →「解压到…」→ 解压到 D 盘或桌面</li>
+    </ol>
+    <h3>方式 B：用 git 命令下载（可选，想长期更新用这个）</h3>
+    <div class="term">💻 终端操作：① 按 <b>Win + R</b>，输入 <code class="inline">cmd</code>，回车 ② 复制下面这行命令 ③ 在黑色窗口里右键粘贴，按<b>回车</b>执行。</div>
+    <pre>git clone https://github.com/LI-PG1/MS-Agent-Lite.git D:\MS-Agent-Lite</pre>
+    <div class="note">📌 解压后记下路径，本文统一以 <code class="inline">D:\MS-Agent-Lite</code> 为例（即能看到 <code class="inline">MS-Agent-Lite工程文件</code> 文件夹和 <code class="inline">启动面试准备助手.bat</code> 的那一层）。</div>
+    <div class="ok">✔ 检查：打开文件夹能看到 <code class="inline">MS-Agent-Lite工程文件</code> 子文件夹。</div>
+  </section>
+
+  <!-- 4 启动 -->
+  <section class="sec" data-step="4" id="s4">
+    <h2><span class="step-no">4</span>启动面试准备助手</h2>
+    <p class="desc">以后每次使用都这样做：双击启动器 → 浏览器自动打开。<b>无需自己安装 Node.js</b>。</p>
+    <div class="ok">✅ <b>双击启动器（最简单）</b> —— 打开发布包第一层（项目根目录）<code class="inline">D:\MS-Agent-Lite</code>，找到 <b><code class="inline">启动面试准备助手.bat</code></b>，双击即可。<b>首次启动</b>会自动解压内置的 Node.js 与依赖包（约 1~2 分钟，仅此一次，期间不要关窗口），随后自动启动本地服务并打开浏览器 <code class="inline">http://localhost:8900/</code>；若没自动打开，手动访问 <code class="inline">http://127.0.0.1:8900</code> 即可。之后每次启动都是秒开。</div>
+    <div class="term">💻 <b>手动方式（可选）</b>：如果你已经自行安装了 Node.js，也可以在终端进入 <code class="inline">MS-Agent-Lite工程文件\20_执行</code> 后运行 <code class="inline">npm start</code>（首次需先 <code class="inline">npm install</code>）。</div>
+    <div class="ok">✔ 检查：看到 <code class="inline">服务已启动: http://127.0.0.1:8900</code> 字样即成功。</div>
+    <div class="warn">⚠ 用完想关闭：双击启动的服务在后台运行，直接关浏览器即可（下次双击自动复用/重启）；手动方式启动的回到终端按 <b>Ctrl + C</b>（问 Y/N 就按 Y 回车）。</div>
+  </section>
+
+  <!-- 5 配 Key -->
+  <section class="sec" data-step="5" id="s5">
+    <h2><span class="step-no">5</span>把 API Key 填进面试准备助手</h2>
+    <p class="desc">面试准备助手已经把"配钥匙"做成了主页面第 1 步，照着填即可：</p>
+    <div class="flow">打开面试准备助手页面 → 第 1 步「大模型 API Key」→ 选平台（自动填 Base URL / 模型）→ 粘贴 Key → 保存并自检 → ✓ 配置成功</div>
+    <ol>
+      <li>先做<b>第 4 步</b>启动面试准备助手，浏览器打开 <code class="inline">http://127.0.0.1:8900</code></li>
+      <li>页面顶部就是第 1 步「大模型 API Key」卡片：在「选择平台」里选你第 2 步注册的服务商（如智谱 AI），名称 / Base URL / 模型会自动填好</li>
+      <li>把第 2 步复制好的 <b>API Key</b> 粘贴到「⑥ API Key」输入框</li>
+      <li>点「💾 保存并自检」→ 显示「✓ 已保存并自检通过」、顶部状态条变绿「✓ API Key 已配置成功」即成功</li>
+    </ol>
+    <div class="note">📌 能力选择：本版只需文本能力（界面默认「文本能力模型」即可），识图由面试准备助手内置的本地离线识别自动处理，无需视觉模型。备选：直接编辑 <code class="inline">D:\MS-Agent-Lite\MS-Agent-Lite工程文件\20_执行\config.json</code> 里的 apiKey（注意保留英文引号），拿不准就用页面方式。</div>
+  </section>
+
+  <!-- 6 使用 -->
+  <section class="sec" data-step="6" id="s6">
+    <h2><span class="step-no">6</span>开始使用（6 步走一遍）</h2>
+    <p class="desc">按界面提示操作即可：</p>
+    <div class="flow">上传简历 → 选行业（可选）→ 填岗位名称 → 填岗位 JD（直接粘贴文本）→ 补参考网址 / 参考信息（可选）→ 一键生成 → 审核通过 ✓</div>
+    <ol>
+      <li><b>上传简历</b>：支持 pdf / word(docx) / txt / markdown(md)，<b>请上传文字版</b>（扫描件、拍照或图片型 PDF 无法读取，请先用 Word 打开后另存为 docx，或转成 txt）——拖进去或点选择，解析成功会显示预览</li>
+      <li><b>选行业方向（可选）</b>：如「程序员/开发」，界面会提示常搜网站</li>
+      <li><b>填岗位名称</b>：如 <code class="inline">腾讯-Agent开发实习生</code>（生成文件名 = 岗位名称 + 面试准备）</li>
+      <li><b>填岗位 JD</b>：把招聘页面的 JD 文字直接粘贴进文本框——文字越完整，生成的材料越贴合岗位；链接读取（点「读取到下方」）仅为辅助方式，若信息读取失败请直接粘贴文本</li>
+      <li><b>补充参考网址（可选）</b>：公司官网 / 面经 / 技术文章，可点「＋ 添加一行网址」填多条</li>
+      <li><b>补充参考信息（可选）</b>：面经、公司背景、技术文章、发展方向等<b>文字</b>直接粘贴（多段用空行隔开，最多 20000 字，有字数提示）——网页打不开时把内容复制粘贴到这里同样有效</li>
+      <li>点「🚀 一键生成面试材料」→ 等 3~10 分钟 → 看到「内容审核 ✓ 通过」+ 预览窗口</li>
+    </ol>
+    <h3>结果文件在哪</h3>
+    <div class="file-tree">D:\MS-Agent-Lite\MS-Agent-Lite工程文件\30_产出\面试材料\腾讯-Agent开发实习生\<br>
+      ├── 面试主线.md<br>
+      ├── 01_自我介绍.md　…　05_面经分析与面试题库.md<br>
+      ├── _上下文快照.md<br>
+      └── <b>腾讯-Agent开发实习生面试准备.html</b>　← 最终成果，双击打开/打印/分享</div>
+    <h3>它要花多少钱</h3>
+    <div class="faq-body">
+      <p><b>省钱机制</b>：需要付费的只有「大模型 API」一项，且按实际消耗的 token 计费——不生成就不花钱。识别图片文字、组装网页等重活都在你本机完成（本版内置本地离线识别，不消耗 token）；每次只在你点「🚀 一键生成面试材料」时调用模型，输入为简历 / JD / 参考信息 / 8 个生成提示，输出为 8 份材料正文与内容审核。</p>
+      <p><b>预期花费</b>：一次完整生成约消耗 <b>15 万 tokens</b>（约合 15 万字的输入与输出总量），按 DeepSeek-V4-flash 官方现价（输入 1 元 / 百万 tokens、输出 2 元 / 百万 tokens）约 <b>0.2 元</b>；工作日高峰时段（9:00–12:00、14:00–18:00）价格约翻倍至 0.4 元。用智谱 <code class="inline">glm-4-flash</code>（长期免费）时几乎为 0。DeepSeek 官方已公告近期将上调定价，实际费用以最新官方价格为准；相比交给人工整理的时间成本，用模型生成的边际成本可忽略。</p>
+      <p><b>用量建议</b>：参考网址不超过 10 条、简历不超过 10 页，可把输入 token 控制在低区间；每份材料生成后如对个别文件不满意，用「重试」单独重新生成该文件，不必整轮重跑，从而避免重复计费。联网搜索（可选增强）只消耗搜索服务的免费额度（Tavily 每月 1000 次），不产生大模型费用。</p>
+    </div>
+  </section>
+
+  <!-- 7 FAQ -->
+  <section class="sec" data-step="7" id="s7">
+    <h2><span class="step-no">7</span>常见问题（FAQ）</h2>
+    <p class="desc">点开任意问题查看答案。</p>
+
+    <details open>
+      <summary>为什么需要 1 个或 2 个 API Key？</summary>
+      <div class="faq-body">生成面试材料只需要 <b>1 个</b>支持文本（text）的模型 Key，例如智谱 <code class="inline">glm-4-flash</code> 或选 <b>DeepSeek-V4-Flash</b>（页面选择模型时自动填好配置）。图片 / 扫描件中的文字由面试准备助手内置的本地离线识别自动处理，无需视觉模型。</div>
+    </details>
+    <details>
+      <summary>材料里出现【待联网核实：…】标注怎么办？</summary>
+      <div class="faq-body">这是正常现象：大模型的知识存在截止日期，遇到「当前时间 / 实时数据 / 最新动态」等时效信息时，AI 会按协议在正文标注【待联网核实：具体问题】、在文件末尾列出「联网核实清单」，并在生成完成后的结果页汇总提示——这些信息未经联网确认，建议核对来源后再引用。两种处理方式：① <b>配置联网搜索（可选增强）</b>：在「⚙ 高级设置」里填写搜索服务 Key（Tavily，免费注册，每月 1000 次），下次生成前会自动搜索权威来源并注入上下文，减少标注项；② 在「补充参考网址」里粘贴权威来源链接后重新生成，让 AI 直接以你的材料为准。</div>
+    </details>
+    <details>
+      <summary>首次启动解压依赖报错 / 很慢怎么办？</summary>
+      <div class="faq-body">首次启动会自动解压内置的 Node.js 与依赖包（约 1~2 分钟，仅一次，依赖来自发布包内置压缩包、不依赖网络）。若解压中断或报错，可删除 <code class="inline">runtime\node</code> 与 <code class="inline">MS-Agent-Lite工程文件\20_执行\node_modules</code> 后重新双击启动器，重试基本都能成功。</div>
+    </details>
+    <details>
+      <summary>启动时提示 8900 端口被占用？</summary>
+      <div class="faq-body">上次没关干净。回到旧终端按 Ctrl + C；或按 Ctrl+Shift+Esc 打开任务管理器，结束所有 <code class="inline">node</code> 进程后重试。</div>
+    </details>
+    <details>
+      <summary>浏览器打不开 http://127.0.0.1:8900？</summary>
+      <div class="faq-body">确认启动的黑色窗口还开着且没报错；确认地址是 <code class="inline">http</code> 而不是 https。</div>
+    </details>
+    <details>
+      <summary>点生成后提示「没有可用 provider」？</summary>
+      <div class="faq-body">第 5 步没配好：检查 Key 是否粘贴、「能力选择」是否含文本能力（默认「文本能力模型」即可）、有没有点「保存并自检」。配置后看到顶部状态条变绿「✓ API Key 已配置成功」即正常。</div>
+    </details>
+    <details>
+      <summary>上传简历提示「不支持格式」？</summary>
+      <div class="faq-body">只支持 pdf / docx / txt / md。老式 .doc 请另存为 .docx 或转 PDF；图片型简历需先转成带文字层的 PDF。</div>
+    </details>
+    <details>
+      <summary>JD 信息读取失败？</summary>
+      <div class="faq-body">部分网站会限制程序读取内容，导致无法从链接获取 JD。建议直接打开招聘页全选复制，把 JD 文本粘贴进文本框（这也是更准确、处理更快的方式）。链接读取仅作为辅助。</div>
+    </details>
+    <details>
+      <summary>链接读取会被封号吗？</summary>
+      <div class="faq-body">不会。本项目只在你点「读取到下方」时访问一次该网页（最多自动重试一次），不会批量抓取、不会轮询、不会访问你没填写的网址，属于正常浏览行为，不存在封号风险。若某网站频繁读取失败，直接粘贴文本即可。</div>
+    </details>
+    <details>
+      <summary>生成很慢 / 某个文件失败？</summary>
+      <div class="faq-body">正常，免费模型较慢。失败的文件会显示「重试」按钮，点一下单独重试即可，不影响其他文件。</div>
+    </details>
+    <details>
+      <summary>审核提示 WARN？</summary>
+      <div class="faq-body">说明生成内容里可能有数字 / 项目与你的简历对不上。按提示人工修正对应文件后重新生成。</div>
+    </details>
+    <details>
+      <summary>界面或日志中文乱码？</summary>
+      <div class="faq-body">不影响使用。若在意：在终端标题栏右键 → 属性 → 字体选「新宋体」或 Lucida Console。</div>
+    </details>
+  </section>
+
+  <!-- 8 支持与反馈 -->
+  <section class="sec" data-step="8" id="s8">
+    <h2><span class="step-no">8</span>支持与反馈</h2>
+    <p class="desc">本工具仍在持续完善中。如果你有改进建议，或在使用过程中遇到任何问题，欢迎随时联系我：</p>
+    <div class="note">📮 邮箱：<a href="mailto:llxstupg@163.com"><b>llxstupg@163.com</b></a></div>
+    <div class="ok">🙏 感谢使用本工具，祝你面试顺利！</div>
+  </section>
+
+  <footer>🎉 完成以上步骤，你就可以每天用它准备面试了。祝面试顺利！<br>日常三连：双击发布包第一层的 <code class="inline">启动面试准备助手.bat</code> → 浏览器自动打开 → 填 Key 上传简历一键生成 → 关浏览器即可（手动方式：Win+R → cmd → cd /d D:\MS-Agent-Lite\MS-Agent-Lite工程文件\20_执行 → npm start）</footer>
+</main>
+
+<script>
+(function(){
+  "use strict";
+  var STEPS = [
+    {id:"s1",  label:"认识面试准备助手"},
+    {id:"s2",  label:"API Key"},
+    {id:"s3",  label:"下载项目"},
+    {id:"s4",  label:"启动"},
+    {id:"s5",  label:"配 Key"},
+    {id:"s6",  label:"使用"},
+    {id:"s7",  label:"FAQ"},
+    {id:"s8",  label:"支持反馈"}
+  ];
+
+  // 渲染悬浮流程图（节点默认只显示圆点，鼠标悬停展开阶段名称）
+  var rail = document.getElementById("rail");
+  rail.innerHTML = STEPS.map(function(s,i){
+    return '<div class="rail-item" data-step="'+(i+1)+'">' +
+           '<span class="dot"></span><span class="lab">'+(i+1)+'. '+s.label+'</span></div>' +
+           (i < STEPS.length-1 ? '<div class="rail-line"></div>' : '');
+  }).join("");
+
+  var items = [].slice.call(document.querySelectorAll(".rail-item"));
+  var secs  = [].slice.call(document.querySelectorAll("section.sec"));
+  var current = 1;
+
+  function setStep(n){
+    current = Math.max(1, Math.min(STEPS.length, n));
+    items.forEach(function(it,i){
+      var idx = i + 1;
+      it.classList.toggle("active", idx === current);
+      it.classList.toggle("done", idx < current);
+    });
+  }
+
+  // 点击圆点跳转
+  items.forEach(function(it){
+    it.addEventListener("click", function(){
+      var n = +it.dataset.step;
+      var target = document.getElementById(STEPS[n-1].id);
+      if (target) target.scrollIntoView({behavior:"smooth", block:"start"});
+    });
+  });
+
+  // 滚动联动：以视口顶部往下 30% 处命中的章节作为"当前步骤"
+  var ticking = false;
+  function locate(){
+    ticking = false;
+    // 滚动到底：直接定位到最后一步（底部探测点会超出可滚动范围，导致最后一步永远不被命中）
+    var maxScroll = (document.documentElement.scrollHeight - window.innerHeight) || 0;
+    if (window.scrollY >= maxScroll - 4){
+      setStep(STEPS.length);
+      document.getElementById("toTop").classList.toggle("show", window.scrollY > 400);
+      return;
+    }
+    var probe = window.scrollY + window.innerHeight * 0.30;
+    var cur = 0;
+    for (var i = 0; i < secs.length; i++){
+      var r = secs[i].getBoundingClientRect();
+      var top = r.top + window.scrollY;
+      if (top <= probe) cur = i + 1;
+    }
+    setStep(cur || 1);
+    document.getElementById("toTop").classList.toggle("show", window.scrollY > 400);
+  }
+  window.addEventListener("scroll", function(){
+    if (!ticking){ requestAnimationFrame(locate); ticking = true; }
+  }, {passive:true});
+
+  // 回到顶部
+  document.getElementById("toTop").addEventListener("click", function(){
+    window.scrollTo({top:0, behavior:"smooth"});
+  });
+
+  setStep(1);
+  locate();
+})();
+</script>
+</body>
+</html>

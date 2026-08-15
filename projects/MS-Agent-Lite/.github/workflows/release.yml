@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: powershell -ExecutionPolicy Bypass -File tools/build-release.ps1
+
+      - name: Publish to Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_PROMPT_DISABLED: "1"
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # 幂等发布：该 tag 已有 release（含重打 tag 时 GitHub 恢复的旧版）则先删除，再全新创建，
+          # 保证只含本次构建产物、不残留旧版本号安装包；
+          # GH_PROMPT_DISABLED=1 禁止 gh 交互确认（Actions 无 TTY 时会挂起等待 stdin）
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "Deleting existing release for $TAG"
+            gh release delete "$TAG" --repo "$REPO" --yes
+          fi
+          gh release create "$TAG" --repo "$REPO" tools/_dist/*.exe --generate-notes

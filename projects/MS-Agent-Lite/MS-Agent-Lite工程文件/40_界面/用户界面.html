@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>面试准备助手（纯文本版） · 欢迎</title>
+<style>
+  :root{
+    --bg:#f2f4f8;
+    --card:#ffffff;
+    --ink:#1f2937;
+    --ink-soft:#4b5563;
+    --ink-mute:#6b7280;
+    --line:#e5e7eb;
+    --accent:#2563eb;
+    --accent-2:#06b6d4;
+    --accent-soft:#eff6ff;
+    --topbar:#111827;
+    --topbar-fg:#f9fafb;
+    --radius:14px;
+    --shadow:0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:0 8px 30px rgba(17,24,39,.10);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Helvetica Neue",Arial,sans-serif;
+    font-size:15px;
+    line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  .topbar{
+    position:fixed;top:0;left:0;right:0;height:56px;z-index:60;
+    background:var(--topbar);color:var(--topbar-fg);
+    display:flex;align-items:center;gap:12px;padding:0 24px;
+    box-shadow:0 2px 8px rgba(0,0,0,.18);
+  }
+  .topbar-title{font-weight:700;font-size:15px;letter-spacing:.3px}
+  .topbar-sub{margin-left:auto;font-size:12px;color:#9ca3af}
+  .topbar-badge{
+    font-size:11.5px;color:#6ee7b7;background:rgba(16,185,129,.12);
+    border:1px solid rgba(16,185,129,.35);padding:3px 10px;border-radius:20px;white-space:nowrap;
+  }
+
+  .wrap{max-width:960px;margin:0 auto;padding:96px 20px 60px}
+
+  /* ---------- Hero ---------- */
+  .hero{
+    background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 45%,#06b6d4 100%);
+    border-radius:var(--radius);
+    color:#fff;padding:52px 48px 46px;text-align:center;
+    box-shadow:var(--shadow-lg);position:relative;overflow:hidden;
+  }
+  .hero::after{
+    content:"";position:absolute;right:-80px;top:-80px;width:280px;height:280px;
+    border-radius:50%;background:rgba(255,255,255,.08);
+  }
+  .hero::before{
+    content:"";position:absolute;right:40px;bottom:-110px;width:200px;height:200px;
+    border-radius:50%;background:rgba(255,255,255,.06);
+  }
+  .hero h1{margin:0 0 12px;font-size:32px;font-weight:800;letter-spacing:.5px}
+  .hero p{margin:0 auto 28px;max-width:560px;font-size:16px;color:rgba(255,255,255,.92);line-height:1.8}
+  .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;position:relative;z-index:1}
+  .cta a{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:12px 30px;border-radius:28px;font-size:15px;font-weight:700;text-decoration:none;
+    transition:all .2s;
+  }
+  .cta .primary{background:#fff;color:var(--accent);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+  .cta .primary:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.24)}
+  .cta .ghost{border:1.5px solid rgba(255,255,255,.7);color:#fff}
+  .cta .ghost:hover{background:rgba(255,255,255,.14)}
+
+  /* ---------- 区块 ---------- */
+  section.card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:30px 32px;margin-top:22px;
+  }
+  section.card h2{
+    margin:0 0 6px;font-size:20px;font-weight:800;
+    display:flex;align-items:center;gap:10px;
+  }
+  section.card .sub{color:var(--ink-mute);font-size:13.5px;margin:0 0 20px}
+  .num{
+    flex:0 0 32px;height:32px;border-radius:9px;font-size:15px;font-weight:800;color:#fff;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+
+  /* 三步 */
+  .steps{display:flex;flex-direction:column;gap:14px}
+  .step{
+    display:flex;gap:16px;align-items:flex-start;
+    border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:#fbfcfe;
+  }
+  .step .no{
+    flex:0 0 40px;height:40px;border-radius:10px;font-size:16px;font-weight:800;color:#fff;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(37,99,235,.3);
+  }
+  .step h3{margin:0 0 4px;font-size:15.5px}
+  .step p{margin:0;color:var(--ink-soft);font-size:13.5px}
+  .step p b{color:var(--ink)}
+
+  /* 特点三卡 */
+  .feats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .feat{
+    border:1px solid var(--line);border-radius:12px;padding:20px 18px;background:#fff;
+  }
+  .feat .ic{
+    width:42px;height:42px;border-radius:10px;font-size:20px;
+    background:var(--accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:12px;
+  }
+  .feat h3{margin:0 0 6px;font-size:15px}
+  .feat p{margin:0;color:var(--ink-soft);font-size:13px;line-height:1.65}
+
+  /* 首次使用提示 */
+  .notice{
+    border:1px solid #bfdbfe;background:linear-gradient(180deg,#eff6ff 0%,#fff 100%);
+    border-radius:12px;padding:18px 20px;margin-top:22px;
+  }
+  .notice b{color:#1e3a8a}
+  .notice ul{margin:8px 0 0;padding-left:20px;color:var(--ink-soft);font-size:13.5px}
+  .notice li{margin:4px 0}
+  .notice a{color:var(--accent);text-decoration:none;font-weight:600}
+  .notice a:hover{text-decoration:underline}
+
+  footer{
+    text-align:center;color:var(--ink-mute);font-size:12.5px;margin-top:34px;
+  }
+  footer a{color:var(--accent);text-decoration:none}
+
+  @media (max-width:720px){
+    .hero{padding:38px 22px 34px}
+    .hero h1{font-size:24px}
+    .feats{grid-template-columns:1fr}
+    .wrap{padding-top:84px}
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <span class="topbar-title">面试准备助手 · 纯文本版</span>
+    <span class="topbar-badge">本地运行 · 数据不出本机</span>
+    <span class="topbar-sub">上传简历 + 岗位 JD → 一键生成面试准备材料</span>
+  </div>
+
+  <div class="wrap">
+
+    <!-- 页首提示：感谢 + 反馈渠道 -->
+    <div style="background:#fff;border:1px solid #bfdbfe;border-left:4px solid var(--accent);border-radius:12px;padding:12px 18px;margin-bottom:16px;font-size:13px;color:var(--ink-soft);line-height:1.8">
+      感谢使用 <b>面试准备助手（纯文本版）</b>，希望能对你的面试有所帮助。只需配置<b>一个文本模型</b>即可完整使用本版，生成的面试材料质量与视觉版相当，无需视觉模型。使用中如有问题或建议，欢迎随时联系作者：<a href="mailto:llxstupg@163.com" style="color:var(--accent);font-weight:600">llxstupg@163.com</a>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <h1>欢迎使用 面试准备助手</h1>
+      <p>面向技术岗位求职的本地 AI 面试教练：上传简历、粘贴岗位 JD，自动生成覆盖面试前 / 中 / 后全流程的 8 份准备材料，并可随时做「保存并自检」，确保配置可用。</p>
+      <div class="cta">
+        <a class="primary" href="../20_执行/web/index.html">开始使用 →</a>
+        <a class="ghost" href="使用指南.html">查看使用指南</a>
+      </div>
+    </div>
+
+    <!-- 三步开始 -->
+    <section class="card">
+      <h2><span class="num">1</span>三步开始</h2>
+      <p class="sub">与主界面顶部流程条一致：钥匙 → 能力 → 保存验证 →（可选）高级设置</p>
+      <div class="steps">
+        <div class="step">
+          <div class="no">1</div>
+          <div>
+            <h3>配置大模型 API Key</h3>
+            <p>选择平台（支持 <b>12 家主流大模型平台</b>，也可手动填写）→ 粘贴 API Key → 点「保存并自检」。自检通过后状态条变绿，即可开始生成。每次保存一个配置，保存后「大模型 API Key」输入框自动清空，可粘贴下一个平台的 Key 继续配置；所有配置统一在右上角「⚙ 高级设置」中管理，顺序即调用优先级。</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="no">2</div>
+          <div>
+            <h3>输入岗位与材料</h3>
+            <p>填写 <b>岗位名称</b>（如 腾讯-Agent开发实习生）→ 上传 <b>简历</b>（pdf / word / txt / md）→ 粘贴或抓取 <b>岗位 JD</b>（可选补充参考网址）。</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="no">3</div>
+          <div>
+            <h3>一键生成，直接开用</h3>
+            <p>点击「一键生成」，自动产出 <b>8 份材料</b>：公司背景 / 面试主线 / 自我介绍 / 项目深挖 / 技术场景题 / 反问环节 / 面经题库 / 数字口径，并内置面试前清单、面试中实时笔记与面试后跟进模板。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 特点 -->
+    <section class="card">
+      <h2><span class="num">2</span>为什么用它</h2>
+      <p class="sub">专为「准备充分、状态在线」的候选人设计</p>
+      <div class="feats">
+        <div class="feat">
+          <div class="ic">📋</div>
+          <h3>全流程覆盖</h3>
+          <p>面试前清单核对 → 面试中按环节实时记笔记 → 面试后复盘模板，材料即用即取。</p>
+        </div>
+        <div class="feat">
+          <div class="ic">🔌</div>
+          <h3>多模型兼容</h3>
+          <p>智谱 / DeepSeek / OpenAI / 通义 / 千帆 / 混元 / Kimi / 星火 等 12 家平台，支持多配置切换，保存即真实自检。</p>
+        </div>
+        <div class="feat">
+          <div class="ic">🔒</div>
+          <h3>本地私密</h3>
+          <p>全程在本机运行，简历与材料只存本地；除调用你配置的大模型接口外，不上传任何数据到其他服务。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 首次使用提示 -->
+    <div class="notice">
+      <b>开始之前（首次使用请先读）：</b>
+      <ul>
+        <li><b>先启动 面试准备助手</b>：进入 <code>MS-Agent-Lite工程文件</code> 目录后运行 <code>node 20_执行\server.js</code>，浏览器访问 <code>http://127.0.0.1:8900</code>（详见《使用指南.html》第 8 步）。</li>
+        <li><b>还没有 API Key？</b> 到所选平台官网注册 → 实名认证 → 创建 API Key → 复制（详见《使用指南.html》第 2 步，有各平台获取入口）。</li>
+        <li><b>简历建议</b>：上传文字版 PDF 或 Word；若为扫描件/图片型，请先转成文字版再上传，否则生成的材料缺少你的项目经历。</li>
+      </ul>
+    </div>
+
+    <footer>
+      感谢使用 面试准备助手（纯文本版），希望能对你的面试有所帮助。如有问题或建议，欢迎随时联系作者：<a href="mailto:llxstupg@163.com">llxstupg@163.com</a> · 如需帮助，查阅 <a href="使用指南.html">《使用指南.html》</a> · 面试准备助手
+    </footer>
+
+  </div>
+</body>
+</html>

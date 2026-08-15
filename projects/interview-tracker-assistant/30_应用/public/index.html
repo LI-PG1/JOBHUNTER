@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>面试跟踪助手</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>面试跟踪助手</h1>
+      <div class="meta">数据自动保存于本地 · 刷新不丢失 · 关闭本窗口前无需手动保存</div>
+    </div>
+    <div class="status-pill" id="saveStatus">已载入</div>
+  </header>
+
+  <!-- 今日要点（置顶 + 待办事项，按时间升序） -->
+  <section class="dashboard">
+    <div class="dash-pinned">
+      <div class="dash-title">📌 置顶</div>
+      <div class="pinned-items" id="pinnedItems">
+        <span class="pinned-empty">暂无置顶 · 有面试的投递会自动置顶，也可点击行首星标手动置顶</span>
+      </div>
+    </div>
+    <div class="dash-remind">
+      <div class="dash-title">🔔 待办事项<span class="clock" id="nowClock">--</span></div>
+      <div class="reminder-bar" id="reminderBar"></div>
+    </div>
+  </section>
+
+  <!-- 智能识别（常驻输入栏：粘贴杂乱信息 → 自动识别 → 确认后保存） -->
+  <section class="quick-parse">
+    <span class="qp-label">✨ 智能识别</span>
+    <textarea id="qpText" rows="2" placeholder="粘贴投递 / 面试信息…"></textarea>
+    <button class="btn primary" id="btnQp">识别补充</button>
+    <span class="qp-hint">识别结果先进入确认表单，核对无误后再保存</span>
+  </section>
+
+  <!-- 工具栏 -->
+  <section class="toolbar">
+    <button class="btn primary" id="btnAdd">＋ 新增投递</button>
+    <div class="spacer"></div>
+    <button class="btn" id="btnAi" title="配置大模型 API（智能识别使用）">⚙ API</button>
+    <input class="search" id="searchInput" type="text" placeholder="搜索公司 / 岗位关键词…">
+    <select class="select" id="statusFilter">
+      <option value="">状态：全部</option>
+      <option value="1">进行中</option>
+      <option value="0">已投待进展</option>
+      <option value="2">已挂 / 放弃</option>
+      <option value="3">Offer</option>
+    </select>
+    <select class="select" id="cityFilter">
+      <option value="">城市：全部</option>
+    </select>
+    <select class="select" id="workTypeFilter">
+      <option value="">工作类型：全部</option>
+      <option value="autumn">秋招</option>
+      <option value="convert">有转正实习</option>
+      <option value="nonconvert">日常实习</option>
+      <option value="unknown">未知</option>
+    </select>
+  </section>
+
+  <!-- 分类 Tab（全部 / 实习 / 秋招 / Offer 四个并列分类） -->
+  <section class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="all">全部</button>
+    <button class="tab-btn" data-tab="intern">实习</button>
+    <button class="tab-btn" data-tab="autumn">秋招</button>
+    <button class="tab-btn" data-tab="offer">Offer</button>
+  </section>
+
+  <!-- 投递列表（横版卡片，分组 + 组内按紧迫性排序） -->
+  <section class="panel">
+    <div class="list-head">
+      <span>分组查看进度：进行中优先，面试 / 笔试截止越近越靠前，终态自动沉底</span>
+    </div>
+    <div id="jobList" class="job-list"></div>
+    <div class="empty-row" id="emptyRow" style="display:none;">暂无符合条件的投递记录</div>
+  </section>
+
+  <footer>
+    维护说明：新增/更新后自动保存并按优先级重排。<br>
+    单元格：<span class="cell st-pass">通过</span> · <span class="cell st-wait">等结果</span> · <span class="cell st-todo">待进行</span> · 浅灰＝未到该环节 ｜ 行首星标＝置顶（有面试的投递自动置顶并按面试时间排序）
+</div>
+
+<!-- 新增 / 更新弹层 -->
+<div class="modal-mask" id="modalMask" style="display:none;">
+  <div class="modal" id="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">新增投递</h2>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot">
+      <button class="btn" id="modalCancel">取消</button>
+      <button class="btn primary" id="modalSave">保存并重排</button>
+    </div>
+  </div>
+</div>
+
+<button class="back-top" id="backTop" title="回到顶部">↑</button>
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

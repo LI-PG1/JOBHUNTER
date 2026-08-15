@@ -1,0 +1,202 @@
+{
+  "version": "1.0.0",
+  "roles": [
+    {
+      "id": "llm-inference-engineer",
+      "name": "大模型推理优化工程师",
+      "aliases": ["推理优化", "推理加速", "模型推理", "推理引擎", "推理部署", "inference engineer", "推理性能"],
+      "industry": "ai-platform",
+      "line": "inference",
+      "education": ["本科", "硕士", "博士"],
+      "required_skills": [
+        { "skill": "vllm", "weight": 5 },
+        { "skill": "quantization", "weight": 4 },
+        { "skill": "inference-optimization", "weight": 4 },
+        { "skill": "llm-foundation", "weight": 3 },
+        { "skill": "docker", "weight": 2 }
+      ],
+      "plus_skills": [
+        { "skill": "tensorrt", "weight": 2 },
+        { "skill": "sglang", "weight": 2 },
+        { "skill": "kubernetes", "weight": 2 },
+        { "skill": "cuda-gpu", "weight": 2 },
+        { "skill": "distributed-training", "weight": 2 }
+      ],
+      "salary_ref": "18-45K",
+      "summary": "LLM 端到端部署与吞吐/延迟优化，量化压缩（AWQ/GPTQ/FP8），推理框架选型"
+    },
+    {
+      "id": "llm-app-engineer",
+      "name": "大模型应用开发工程师",
+      "aliases": ["大模型应用", "LLM 应用", "大模型开发", "AI 应用开发", "llm engineer"],
+      "industry": "ai-platform",
+      "line": "application",
+      "education": ["本科", "硕士"],
+      "required_skills": [
+        { "skill": "llm-foundation", "weight": 4 },
+        { "skill": "prompt-engineering", "weight": 4 },
+        { "skill": "rag", "weight": 4 },
+        { "skill": "sft-finetune", "weight": 3 },
+        { "skill": "fastapi-backend", "weight": 3 }
+      ],
+      "plus_skills": [
+        { "skill": "agent", "weight": 3 },
+        { "skill": "vector-db", "weight": 2 },
+        { "skill": "docker", "weight": 2 },
+        { "skill": "lora", "weight": 2 }
+      ],
+      "salary_ref": "20-40K",
+      "summary": "大模型业务应用落地：Prompt/RAG/微调/后端服务"
+    },
+    {
+      "id": "agent-engineer",
+      "name": "AI Agent 开发工程师",
+      "aliases": ["Agent 开发", "智能体开发", "Agent 工程师", "AI Agent", "agentic", "多智能体"],
+      "industry": "ai-platform",
+      "line": "application",
+      "education": ["本科", "硕士"],
+      "required_skills": [
+        { "skill": "agent", "weight": 5 },
+        { "skill": "rag", "weight": 4 },
+        { "skill": "function-call", "weight": 4 },
+        { "skill": "llm-foundation", "weight": 3 },
+        { "skill": "prompt-engineering", "weight": 3 }
+      ],
+      "plus_skills": [
+        { "skill": "memory", "weight": 3 },
+        { "skill": "mcp", "weight": 2 },
+        { "skill": "langchain", "weight": 2 },
+        { "skill": "fastapi-backend", "weight": 2 }
+      ],
+      "salary_ref": "25-60K",
+      "summary": "Agent 系统设计：工具调用/多轮规划/记忆/多智能体协同"
+    },
+    {
+      "id": "nlp-algorithm",
+      "name": "NLP 算法工程师",
+      "aliases": ["NLP 算法", "自然语言处理", "算法工程师", "文本算法"],
+      "industry": "ai-platform",
+      "line": "application",
+      "education": ["硕士", "博士"],
+      "required_skills": [
+        { "skill": "llm-foundation", "weight": 4 },
+        { "skill": "deep-learning-framework", "weight": 4 },
+        { "skill": "sft-finetune", "weight": 3 },
+        { "skill": "ml-classic", "weight": 3 }
+      ],
+      "plus_skills": [
+        { "skill": "rlhf", "weight": 3 },
+        { "skill": "prompt-engineering", "weight": 2 },
+        { "skill": "lora", "weight": 2 },
+        { "skill": "multimodal", "weight": 2 }
+      ],
+      "salary_ref": "25-50K",
+      "summary": "预训练/SFT/RL 全链路 NLP 算法研究与应用"
+    },
+    {
+      "id": "multimodal-algorithm",
+      "name": "多模态/具身智能算法工程师",
+      "aliases": ["多模态算法", "具身智能", "VLA", "多模态大模型算法", "世界模型"],
+      "industry": "ai-platform",
+      "line": "both",
+      "education": ["硕士", "博士"],
+      "required_skills": [
+        { "skill": "multimodal", "weight": 5 },
+        { "skill": "deep-learning-framework", "weight": 4 },
+        { "skill": "llm-foundation", "weight": 4 },
+        { "skill": "sft-finetune", "weight": 3 }
+      ],
+      "plus_skills": [
+        { "skill": "vla", "weight": 4 },
+        { "skill": "rlhf", "weight": 3 },
+        { "skill": "inference-optimization", "weight": 2 },
+        { "skill": "quantization", "weight": 2 }
+      ],
+      "salary_ref": "30-70K",
+      "summary": "多模态理解生成一体、具身 VLA 预训练/后训练"
+    },
+    {
+      "id": "ai-infra-engineer",
+      "name": "AI Infra 工程师",
+      "aliases": ["AI Infra", "AI 基础设施", "大模型基础设施", "训练平台", "推理平台"],
+      "industry": "ai-platform",
+      "line": "inference",
+      "education": ["本科", "硕士"],
+      "required_skills": [
+        { "skill": "distributed-training", "weight": 4 },
+        { "skill": "kubernetes", "weight": 4 },
+        { "skill": "vllm", "weight": 3 },
+        { "skill": "docker", "weight": 3 },
+        { "skill": "inference-optimization", "weight": 3 }
+      ],
+      "plus_skills": [
+        { "skill": "cuda-gpu", "weight": 3 },
+        { "skill": "quantization", "weight": 2 },
+        { "skill": "tensorrt", "weight": 2 }
+      ],
+      "salary_ref": "30-60K",
+      "summary": "大模型训练/推理平台：并行策略、算力调度、模型服务化"
+    },
+    {
+      "id": "robotics-algorithm",
+      "name": "机器人算法工程师",
+      "aliases": ["机器人算法", "具身智能算法", "机器人开发", "机械臂算法"],
+      "industry": "robotics",
+      "line": "both",
+      "education": ["硕士", "博士"],
+      "required_skills": [
+        { "skill": "deep-learning-framework", "weight": 4 },
+        { "skill": "slam", "weight": 4 },
+        { "skill": "robotics-control", "weight": 3 },
+        { "skill": "vla", "weight": 3 }
+      ],
+      "plus_skills": [
+        { "skill": "multimodal", "weight": 3 },
+        { "skill": "inference-optimization", "weight": 2 },
+        { "skill": "onnx-openvino", "weight": 2 }
+      ],
+      "salary_ref": "20-50K",
+      "summary": "机器人感知/决策/控制：SLAM、VLA、端侧部署"
+    },
+    {
+      "id": "ml-engineer",
+      "name": "机器学习算法工程师",
+      "aliases": ["机器学习算法", "ML 工程师", "算法工程师（通用）"],
+      "industry": "ai-platform",
+      "line": "application",
+      "education": ["本科", "硕士"],
+      "required_skills": [
+        { "skill": "ml-classic", "weight": 4 },
+        { "skill": "deep-learning-framework", "weight": 4 },
+        { "skill": "data-engineering", "weight": 3 }
+      ],
+      "plus_skills": [
+        { "skill": "llm-foundation", "weight": 2 },
+        { "skill": "rag", "weight": 2 }
+      ],
+      "salary_ref": "20-40K",
+      "summary": "经典 ML + 深度学习的通用算法岗"
+    },
+    {
+      "id": "llm-fullstack",
+      "name": "LLM 全栈/后端工程师",
+      "aliases": ["LLM 全栈", "AI 后端", "大模型后端", "全栈工程师"],
+      "industry": "ai-platform",
+      "line": "application",
+      "education": ["本科", "硕士"],
+      "required_skills": [
+        { "skill": "fastapi-backend", "weight": 5 },
+        { "skill": "llm-foundation", "weight": 3 },
+        { "skill": "rag", "weight": 3 },
+        { "skill": "docker", "weight": 3 }
+      ],
+      "plus_skills": [
+        { "skill": "agent", "weight": 2 },
+        { "skill": "kubernetes", "weight": 2 },
+        { "skill": "vector-db", "weight": 2 }
+      ],
+      "salary_ref": "20-45K",
+      "summary": "大模型应用后端：API 服务、知识库接入、部署上线"
+    }
+  ]
+}

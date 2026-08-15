@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JS-Agent 岗位匹配助手</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- 顶部常驻栏 -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">JS-Agent</span>
+      <span class="brand-sub">岗位匹配助手</span>
+    </div>
+    <div class="topbar-right">
+      <span id="chainPill" class="pill pill-muted" title="搜索通道（自动选择）">搜索通道：探测中</span>
+      <button id="btnConsole" class="btn btn-primary btn-sm" type="button">⚙ 控制台</button>
+    </div>
+  </div>
+</header>
+
+<!-- 控制台悬浮框 -->
+<div id="consoleMask" class="modal-mask hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">⚙ 控制台</span>
+      <span id="keyReady" class="hint-ok"></span>
+      <button id="btnCloseConsole" class="btn btn-sm btn-ghost" type="button">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="d-section">
+        <h4>模型与 Key</h4>
+        <div class="grid3">
+          <div class="field">
+            <label class="field-label">AI 厂商 <span class="req">必选</span></label>
+            <select id="providerSelect" class="input"></select>
+          </div>
+          <div class="field">
+            <label class="field-label">模型 <span class="req">必选</span></label>
+            <select id="modelSelect" class="input"></select>
+          </div>
+          <div class="field">
+            <label class="field-label">API Key <span class="req">必选</span></label>
+            <input id="apiKeyInput" class="input" type="password" placeholder="sk-..." autocomplete="off">
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-primary" id="btnSaveKey">保存</button>
+          <button class="btn" id="btnTestKey">测试</button>
+          <button class="btn btn-danger hidden" id="btnDeleteKey">删除</button>
+          <span id="keyMsg" class="hint-ok"></span>
+        </div>
+        <div class="key-list-bar" id="keyListBar"></div>
+      </div>
+
+      <div class="d-section">
+        <h4>插件管理</h4>
+        <p class="d-tip">每个插件可独立配置 / 卸载，操作期间按钮置灰。</p>
+        <div class="plug-status" id="plugStatus">空闲</div>
+        <div id="plugList" class="plug-list"></div>
+        <div class="hint-line">搜索通道：<span id="plugChain"></span></div>
+      </div>
+
+      <div class="d-section">
+        <h4>约束强度</h4>
+        <div class="btn-row" id="constraintRow">
+          <button class="btn btn-sm" data-mode="strict">严格</button>
+          <button class="btn btn-sm" data-mode="standard">标准</button>
+          <button class="btn btn-sm" data-mode="loose">宽松</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- 左栏：常驻流程栏（页面级主线，不随滚动移动） -->
+  <aside class="rail">
+    <div class="rail-title">使用流程</div>
+    <ol class="progress-steps" id="stepsNav">
+      <li class="pstep active" data-step="1"><span class="p-no">1</span>
+        <div class="p-txt"><b>配置 API Key</b><em>点击顶部「⚙ 控制台」</em></div></li>
+      <li class="pstep" data-step="2"><span class="p-no">2</span>
+        <div class="p-txt"><b>填写画像</b><em>城市 / 企业类型 / 个人画像</em></div></li>
+      <li class="pstep" data-step="3"><span class="p-no">3</span>
+        <div class="p-txt"><b>开始匹配与结果</b><em>执行深度搜索，查看清单</em></div></li>
+    </ol>
+  </aside>
+
+  <main class="wrap">
+
+    <!-- ① 填写画像 -->
+    <section class="card" id="panel1">
+      <h2>填写画像</h2>
+      <div class="grid2">
+        <div class="field">
+          <label class="field-label">意向城市 <span class="req">必选</span></label>
+          <select id="city" class="input"></select>
+        </div>
+        <div class="field">
+          <label class="field-label">生成条数 <span class="req">必选</span></label>
+          <select id="maxResults" class="input">
+            <option>10</option><option selected>20</option><option>30</option><option>40</option><option>50</option><option>100</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">意向企业类型 <span class="opt">(多选)</span></label>
+        <div class="chips" id="companyTypes">
+          <label class="chip"><input type="checkbox" value="央企" checked><span>央企</span></label>
+          <label class="chip"><input type="checkbox" value="国企" checked><span>国企</span></label>
+          <label class="chip"><input type="checkbox" value="大型" checked><span>大型</span></label>
+          <label class="chip"><input type="checkbox" value="中型" checked><span>中型</span></label>
+          <label class="chip"><input type="checkbox" value="小型" checked><span>小型</span></label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">个人画像 <span class="req">必填</span></label>
+        <textarea id="profileText" class="input tall" placeholder="请分点填写，便于准确解析：&#10;① 教育背景：学校、专业、学历、毕业年份&#10;② 技术栈：语言、框架、推理工具、模型&#10;③ 项目经历：项目名、职责、技术要点&#10;④ 实习经历：公司、岗位、负责内容"></textarea>
+      </div>
+    </section>
+
+    <!-- ② 开始匹配与结果 -->
+    <section class="card" id="panel2">
+      <h2>开始匹配与结果</h2>
+      <div class="panel-actions">
+        <button class="btn btn-primary btn-lg" id="btnStart">🚀 开始匹配</button>
+        <button class="btn btn-danger btn-sm hidden" id="btnCancel">取消</button>
+      </div>
+      <div class="progress-wrap hidden" id="progressWrap">
+        <div class="progress"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+        <div class="progress-msg" id="progressMsg">准备中...</div>
+      </div>
+      <div id="resultArea">
+        <div id="resultSummary" class="summary hidden"></div>
+        <div class="result-meta" id="resultMeta"></div>
+        <div class="table-wrap">
+          <table class="data-table" id="resultTable">
+            <thead><tr><th>#</th><th>岗位</th><th>公司</th><th>城市</th><th>薪资</th><th>匹配度</th><th>技能线</th><th>行业</th><th>学历</th><th>经验</th><th>状态</th><th>来源</th></tr></thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+        <div id="gapList" class="gap-list"></div>
+        <div id="resultFiles" class="result-files"></div>
+        <div id="resultEmpty" class="result-empty hidden"></div>
+        <div id="resultError" class="error hidden"></div>
+        <button class="btn btn-primary hidden" id="btnRetry">↻ 重新执行匹配</button>
+      </div>
+    </section>
+
+    <footer class="foot">JS-Agent 岗位匹配助手 · 匹配度为系统规则打分，链接来源投递前请人工复核</footer>
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

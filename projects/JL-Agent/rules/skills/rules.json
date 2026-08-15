@@ -1,0 +1,7 @@
+{
+  "version": "1.0",
+  "pass_threshold": 0.6,
+  "weak_threshold": 0.3,
+  "keyword_fallback": true,
+  "prompt_instruction": "基于用户技能列表与岗位方向/JD 关键词，输出技能相关度 0~1 分与理由（JSON：{\"score\": 0.75, \"reason\": \"...\"}）"
+}

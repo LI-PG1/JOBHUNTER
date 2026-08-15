@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>简历生成助手</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <h1>简历生成助手</h1>
+      <span id="ver-tag" class="ver-tag" title="版本号">v0.6.0</span>
+    </div>
+    <div class="top-right">
+      <span id="health-status">检测中…</span>
+      <button id="btn-settings" class="btn-top" type="button"><svg class="ico" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>高级设置</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- 左栏：常驻流程栏（页面级主线，不随滚动移动） -->
+    <aside class="rail rail-left" aria-label="使用进度">
+      <div class="rail-title">使用流程</div>
+      <ol class="progress-steps" id="progress-steps">
+        <li class="pstep active" data-step="1"><span class="p-no">1</span>
+          <div class="p-txt"><b>配置模型</b><em>选厂商 · 选模型 · 填 Key，保存自检</em></div></li>
+        <li class="pstep" data-step="2"><span class="p-no">2</span>
+          <div class="p-txt"><b>填写简历</b><em>基本信息 / 教育 / 技能 / JD 必选</em></div></li>
+        <li class="pstep" data-step="3"><span class="p-no">3</span>
+          <div class="p-txt"><b>生成简历</b><em>选页数 / 水印，点生成</em></div></li>
+        <li class="pstep" data-step="4"><span class="p-no">4</span>
+          <div class="p-txt"><b>预览 / 导出</b><em>确认内容，打印或导出</em></div></li>
+      </ol>
+      <div class="rail-note" id="railNote">开始：第 1 步 选择厂商与模型 → 粘贴 API Key → 保存并自检</div>
+    </aside>
+
+    <div class="wrap">
+    <!-- ================= ① 设置控制台 ================= -->
+    <section class="card">
+      <div class="card-head">
+        <h2>设置控制台</h2>
+        <span id="settings-status" class="key-status">检查配置…</span>
+      </div>
+
+      <!-- 快速配置组（当前 provider）：仅厂商 + 模型下拉选择，参数/URL 自动填充并隐藏（R24） -->
+      <div class="grid">
+        <label>AI 厂商<select id="s-vendor"></select></label>
+        <label>模型<select id="s-model"></select></label>
+        <label class="wide">模型 API Key<input id="s-apikey" type="password" maxlength="512" autocomplete="off"
+               placeholder="sk-..."></label>
+        <input type="hidden" id="s-name">
+        <input type="hidden" id="s-baseurl">
+      </div>
+      <div class="actions">
+        <button id="btn-save-settings" class="btn primary" type="button">保存并自检</button>
+        <span id="settings-hint" class="muted small"></span>
+      </div>
+    </section>
+
+    <!-- ================= ② 简历信息 ================= -->
+    <section class="card">
+      <div class="card-head">
+        <h2>简历信息</h2>
+        <span id="cur-resume" class="muted small"></span>
+      </div>
+      <div class="form">
+        <details class="fs-fold" open>
+          <summary>基本信息 <span class="tag required">必选</span></summary>
+          <div class="grid">
+            <label>姓名<input id="f-name" maxlength="32" placeholder="张三"></label>
+            <label>年龄<input id="f-age" type="number" min="16" max="70" placeholder="24"></label>
+            <label>邮箱<input id="f-email" placeholder="name@mail.com"></label>
+            <label>电话<input id="f-phone" maxlength="20" placeholder="13800000000"></label>
+            <label>个人网页<span class="opt">（可选）</span><input id="f-website" placeholder="https://"></label>
+            <label>期望城市<span class="opt">（可选）</span><input id="f-base" maxlength="50"></label>
+            <label>可实习时长<span class="opt">（可选）</span><input id="f-duration" maxlength="50"></label>
+            <label>到岗时间<span class="opt">（可选）</span><input id="f-start" maxlength="50"></label>
+          </div>
+        </details>
+
+        <details class="fs-fold" open>
+          <summary>教育经历 <span class="tag required">必选</span></summary>
+          <div id="edu-rows"></div>
+          <button class="btn small" type="button" data-add="edu">+ 添加教育</button>
+        </details>
+
+        <details class="fs-fold">
+          <summary>实习经历 <span class="tag optional">可选</span></summary>
+          <div id="int-rows"></div>
+          <button class="btn small" type="button" data-add="int">+ 添加实习</button>
+        </details>
+
+        <details class="fs-fold">
+          <summary>项目经验 <span class="tag optional">可选</span><span class="opt-hint">AI 可按需创作</span></summary>
+          <div id="proj-rows"></div>
+          <button class="btn small" type="button" data-add="proj">+ 添加项目</button>
+        </details>
+
+        <details class="fs-fold" open>
+          <summary>技能特长 <span class="tag required">必选</span></summary>
+          <div id="skill-rows"></div>
+          <button class="btn small" type="button" data-add="skill">+ 添加技能</button>
+        </details>
+
+        <details class="fs-fold">
+          <summary>证书荣誉 <span class="tag optional">可选</span></summary>
+          <div id="honor-rows"></div>
+          <button class="btn small" type="button" data-add="honor">+ 添加荣誉</button>
+        </details>
+
+        <details class="fs-fold" open>
+          <summary>目标岗位 JD <span class="tag required">必选</span></summary>
+          <div id="job-rows"></div>
+          <button class="btn small" type="button" data-add="job">+ 添加 JD</button>
+        </details>
+      </div>
+      <div class="actions">
+        <button id="btn-save" class="btn primary" type="button">保存简历</button>
+        <span id="save-status" class="muted small"></span>
+      </div>
+    </section>
+
+    <!-- ================= ③ 生成 ================= -->
+    <section class="card">
+      <h2>生成</h2>
+      <div class="grid">
+        <label>页数
+          <select id="g-page">
+            <option value="one-page">一页</option>
+            <option value="two-pages">两页</option>
+          </select>
+          <span class="wm-hint">一页：信息密度高，适合应届 / 实习投递；两页：留白充足，适合经历丰富者。</span>
+        </label>
+        <label>水印
+          <select id="g-watermark">
+            <option value="formal">无（正式无水印）</option>
+            <option value="practice">练习（有水印）</option>
+          </select>
+          <span class="wm-hint">正式版：无水印、版面干净，适合最终投递；练习版：底部叠加「本简历部分内容由 AI 生成，请确认真实性后再投递」提示，防止未经确认的内容被误投递。</span>
+        </label>
+        <label class="chk"><input id="g-deep" type="checkbox" checked> 深度搜索</label>
+      </div>
+      <div class="actions">
+        <button id="btn-generate" class="btn primary" type="button" disabled>简历生成</button>
+        <button id="btn-cancel" class="btn danger" type="button" disabled>取消</button>
+      </div>
+      <div id="progress" class="progress-wrap hidden">
+        <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+        <div id="progress-text" class="muted small"></div>
+      </div>
+    </section>
+
+    <!-- ================= ④ 我的简历 ================= -->
+    <section class="card">
+      <div class="card-head">
+        <h2>我的简历</h2>
+        <button id="btn-new" class="btn small" type="button">新建</button>
+      </div>
+      <ul id="resume-list" class="resume-list"></ul>
+    </section>
+
+    <!-- ================= ⑤ 预览 ================= -->
+    <section class="card">
+      <div class="card-head">
+        <h2>预览</h2>
+        <div class="preview-tools">
+          <label>导出格式
+            <select id="p-export-fmt">
+              <option value="pdf">PDF</option>
+              <option value="docx">DOCX</option>
+              <option value="md">Markdown</option>
+              <option value="html">HTML</option>
+              <option value="json">JSON</option>
+            </select>
+          </label>
+          <button id="btn-export" class="btn small" type="button" disabled>导出</button>
+          <button id="btn-adapt" class="btn small" type="button" disabled>自动适配</button>
+          <span id="adapt-info" class="muted small"></span>
+        </div>
+      </div>
+      <div id="banner" class="banner hidden"></div>
+      <div class="preview-wrap">
+        <iframe id="preview" class="preview" title="简历预览"></iframe>
+        <div id="preview-empty" class="preview-empty">生成后在此预览<br>点击正文文字可编辑条目</div>
+      </div>
+      <div id="edit-tip" class="edit-tip">编辑提示：点击预览正文中的文字即可编辑；已编辑条目会带「已锁定」标识，AI 生成不会覆盖。</div>
+    </section>
+    </div>
+
+    <!-- 右栏：常驻提醒栏（聚焦 / 点击字段即显示对应说明，P9） -->
+    <aside class="rail rail-right" aria-label="操作说明">
+      <div class="rail-title">操作说明</div>
+      <div class="help-box">
+        <div class="help-title" id="helpTitle">欢迎使用简历生成助手</div>
+        <div class="help-body" id="helpBody">聚焦或点击任意输入项，这里会显示对应操作的详细说明。</div>
+      </div>
+      <div class="help-foot" id="helpFoot">使用主线：① 配置模型 → ② 填写简历 → ③ 生成简历 → ④ 预览导出</div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    感谢使用简历生成助手，希望能对你的面试有所帮助。如有问题或建议，欢迎随时联系作者：<a href="mailto:llxstupg@163.com">llxstupg@163.com</a>
+  </footer>
+</div>
+
+<!-- 高级设置抽屉（顶部常驻按钮打开，仿 MS-Agent） -->
+<div class="mask" id="settings-mask"></div>
+<div class="drawer" id="settings-drawer">
+  <div class="drawer-head">
+    <h3><svg class="ico" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>高级设置（多模型配置管理 / 搜索 / 插件）</h3>
+    <button class="drawer-close" id="btn-close-settings" type="button">×</button>
+  </div>
+  <div class="drawer-body">
+    <div id="prov-list" class="prov-list"></div>
+
+    <h4>新增配置</h4>
+    <div class="hint-line">列表顺序即调用优先级，激活项排最前。</div>
+    <div class="grid">
+      <label>AI 厂商<select id="p-vendor"></select></label>
+      <label>模型<select id="p-model"></select></label>
+      <label class="wide">API Key<input id="p-apikey" type="password" maxlength="512" placeholder="sk-..."></label>
+      <input type="hidden" id="p-name">
+      <input type="hidden" id="p-baseurl">
+    </div>
+    <div class="actions">
+      <button id="btn-add-provider" class="btn" type="button">添加配置</button>
+      <button id="btn-test-provider" class="btn ghost" type="button">配置自检</button>
+      <span id="prov-msg" class="muted small"></span>
+    </div>
+
+    <h4>联网搜索（可选增强）</h4>
+    <div class="hint-line">配置搜索服务 Key 后，生成前会自动搜索权威来源并注入上下文，减少「待联网核实」标注。全部可选：不配置时按协议标注，不影响生成。</div>
+    <div class="grid">
+      <label class="wide">Tavily API Key<input id="s-searchkey" type="password" maxlength="512"
+             placeholder="tvly-...（留空保存 = 关闭联网搜索）"></label>
+    </div>
+    <div class="actions">
+      <button id="btn-save-search" class="btn" type="button">保存搜索 Key</button>
+      <span id="search-msg" class="muted small"></span>
+    </div>
+    <details class="tutorial">
+      <summary>如何获取 Tavily API Key？（点击展开教程）</summary>
+      <ol>
+        <li>打开官方平台 <a href="https://app.tavily.com" target="_blank" rel="noopener">app.tavily.com ↗</a>，注册或登录账号；</li>
+        <li>进入 Dashboard（控制台），找到左侧「API Keys」页面；</li>
+        <li>点击「Create API Key」生成以 <code>tvly-</code> 开头的密钥；</li>
+        <li>复制密钥粘贴到上方输入框，点击「保存搜索 Key」即启用联网搜索。</li>
+      </ol>
+    </details>
+
+    <h4>插件默认值</h4>
+    <div class="grid">
+      <label class="chk"><input id="s-deep" type="checkbox"> 默认开启深度搜索</label>
+      <label class="chk"><input id="s-watermark-formal" type="checkbox" checked> 默认无水印（正式版）</label>
+    </div>
+    <div class="actions">
+      <button id="btn-save-defaults" class="btn" type="button">保存默认值</button>
+      <span id="defaults-msg" class="muted small"></span>
+    </div>
+
+    <h4>可集成插件（外部 CLI 工具）</h4>
+    <div class="hint-line">外部工具为「待接入」状态：点击「一键配置」自动检测依赖并安装（失败会给出排查指引）；配置成功后「启用」才可选，由你自主决定是否激活。支持 OpenCLI / MediaCrawler / Agent-Reach / zhihu-cli 等，点击 GitHub 链接查看工具说明。</div>
+    <div id="plugin-list"></div>
+    <div class="actions">
+      <span id="plugin-msg" class="muted small"></span>
+    </div>
+  </div>
+</div>
+
+<!-- 条目编辑弹窗（§5.5） -->
+<div id="edit-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="card-head">
+      <h3 id="edit-title">编辑条目</h3>
+      <button id="edit-close" class="btn small" type="button">×</button>
+    </div>
+    <textarea id="edit-text" rows="4" maxlength="500"></textarea>
+    <div class="actions">
+      <button id="edit-unlock" class="btn danger" type="button" hidden>解锁（允许 AI 重写）</button>
+      <button id="edit-save" class="btn primary" type="button">保存并锁定</button>
+      <button id="edit-cancel" class="btn" type="button">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导出确认清单（§7 E8 / PRD FR-6）：AI 项确认 + 水印模式必选 -->
+<div id="export-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="card-head">
+      <h3>导出确认</h3>
+      <button id="export-close" class="btn small" type="button">×</button>
+    </div>
+    <p class="muted small">以下内容由 AI 生成或美化，请确认真实性后再投递：</p>
+    <ul id="export-ai-list" class="export-ai-list"></ul>
+    <p class="muted small" id="export-wm-line"></p>
+    <p class="muted small">PDF 打印时请在打印对话框关闭「页眉和页脚」，避免出现文件路径、日期与页码。</p>
+    <label class="chk"><input id="export-agree" type="checkbox"> 我已确认上述内容的真实性，并确认最终版本符合投递要求</label>
+    <div class="actions">
+      <button id="export-do" class="btn primary" type="button">确认导出</button>
+      <button id="export-cancel" class="btn" type="button">取消</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/adapt.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

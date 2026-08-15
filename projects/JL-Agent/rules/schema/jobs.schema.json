@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "岗位主题一致性判定规则",
+  "type": "object",
+  "required": ["version", "method", "semantic_fallback_threshold", "max_jobs"],
+  "properties": {
+    "version": {"type": "string"},
+    "method": {"type": "string"},
+    "semantic_fallback_threshold": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+    "max_jobs": {"type": "integer", "minimum": 1}
+  }
+}

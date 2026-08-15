@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{COMP}} · 面试准备</title>
+<style>
+
+  :root{
+    --bg:#f2f4f8;
+    --card:#ffffff;
+    --ink:#1f2937;
+    --ink-soft:#4b5563;
+    --ink-mute:#6b7280;
+    --line:#e5e7eb;
+    --line-soft:#eef0f3;
+    --accent:#2563eb;
+    --accent-2:#06b6d4;
+    --accent-soft:#eff6ff;
+    --accent-bg:#dbeafe;
+    --code-bg:#1e1e2e;
+    --code-fg:#e6e6e6;
+    --quote-bg:#f0f7ff;
+    --quote-border:#3b82f6;
+    --topbar:#111827;
+    --topbar-fg:#f9fafb;
+    --shadow:0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:0 8px 30px rgba(17,24,39,.10);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Helvetica Neue",Arial,sans-serif;
+    font-size:15px;
+    line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  .topbar{
+    position:fixed;top:0;left:0;right:0;height:56px;z-index:60;
+    background:var(--topbar);color:var(--topbar-fg);
+    display:flex;align-items:center;gap:12px;padding:0 18px;
+    box-shadow:0 2px 8px rgba(0,0,0,.18);
+  }
+  .topbar-title{font-weight:700;font-size:15px;letter-spacing:.3px;white-space:nowrap}
+  .topbar-sub{margin-left:auto;font-size:12px;color:#9ca3af;white-space:nowrap}
+  .topbar-cur{
+    margin-left:auto;font-size:12px;color:#93c5fd;white-space:nowrap;
+    background:rgba(37,99,235,.18);border:1px solid rgba(37,99,235,.4);
+    padding:3px 10px;border-radius:20px;
+  }
+  .topbar-cur b{color:#fff;font-weight:600}
+  .progress{
+    position:absolute;left:0;bottom:0;height:3px;width:0;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    transition:width .12s linear;z-index:61;
+  }
+
+  /* ---------- 移动端步骤条 ---------- */
+  .mobile-steps{
+    position:fixed;top:56px;left:0;right:0;height:44px;z-index:59;
+    display:flex;gap:8px;align-items:center;padding:0 12px;
+    background:#fff;border-bottom:1px solid var(--line);
+    overflow-x:auto;overflow-y:hidden;white-space:nowrap;
+    scrollbar-width:none;box-shadow:var(--shadow);
+  }
+  .mobile-steps::-webkit-scrollbar{display:none}
+  .mstep{
+    flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;
+    padding:5px 12px;border-radius:16px;font-size:12.5px;
+    color:var(--ink-soft);background:var(--line-soft);text-decoration:none;
+    border:1px solid transparent;
+  }
+  .mstep.active{color:#fff;background:var(--accent);border-color:var(--accent)}
+
+  /* ---------- 布局 ---------- */
+  .layout{display:flex}
+  .sidebar{
+    position:fixed;left:0;top:56px;bottom:0;width:296px;
+    background:#fff;border-right:1px solid var(--line);
+    overflow-y:auto;overflow-x:hidden;z-index:40;padding:18px 14px 40px;
+  }
+  .main{flex:1;margin-left:296px;padding:80px 28px 120px;min-width:0}
+  .content{max-width:980px;margin:0 auto}
+
+  /* ---------- 步骤导航 ---------- */
+  .steps-label{font-size:11px;letter-spacing:2px;color:var(--ink-mute);font-weight:700;margin:0 6px 10px}
+  .step-wrap{margin-bottom:4px;border-radius:10px}
+  .step-wrap.active{background:var(--accent-soft)}
+  .step{
+    display:flex;align-items:center;gap:10px;text-decoration:none;
+    padding:9px 10px;border-radius:10px;color:var(--ink);
+    font-weight:600;font-size:13.5px;border-left:3px solid transparent;
+  }
+  .step:hover{background:var(--accent-soft)}
+  .step-no{
+    flex:0 0 26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    background:var(--line-soft);color:var(--ink-soft);font-size:12px;font-weight:700;
+  }
+  .step-wrap.active .step{color:var(--accent);border-left-color:var(--accent)}
+  .step-wrap.active .step-no{background:var(--accent);color:#fff}
+  .step-subs{margin:0 0 6px;padding-left:46px}
+  .step-subs a{
+    display:block;padding:4px 8px;color:var(--ink-mute);text-decoration:none;
+    font-size:12.5px;line-height:1.5;border-left:2px solid var(--line);margin-left:3px;
+  }
+  .step-subs a:hover{color:var(--accent)}
+  .step-subs a.active{color:var(--accent);font-weight:600;border-left-color:var(--accent)}
+  /* 三级/四级子目录（项目经验：项目 → STAR 五段），逐级缩进以示层级（R7 结果格式规范） */
+  .step-subs a.lv3{padding-left:12px;font-size:12px;color:var(--ink-soft)}
+  .step-subs a.lv3::before{content:"└ ";color:var(--muted)}
+  .step-subs a.lv4{padding-left:24px;font-size:11.5px;color:var(--ink-mute)}
+  .step-subs a.lv4::before{content:"· ";color:var(--muted)}
+
+  /* ---------- 顶栏联系方式（R7：结果文件开头统一显示联系方式 + 祝福语） ---------- */
+  .topbar-contact{margin-left:12px;font-size:12px;color:#93c5fd;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;max-width:36vw}
+  #topbarContact:empty{display:none}
+
+  /* ---------- 页脚（R7：结果文件结尾统一显示联系方式 + 祝福语） ---------- */
+  .page-footer{margin-top:6px}
+  .page-footer .pf-box{max-width:980px;margin:0 auto;padding:18px 24px;border:1px solid var(--line);
+    border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);text-align:center}
+  .page-footer .pf-contact{font-size:13px;color:var(--ink-soft)}
+  .page-footer .pf-bless{margin-top:8px;font-size:13.5px;font-weight:700;color:var(--accent)}
+
+  /* ---------- 结果文件底部感谢语（产品署名 + 反馈渠道） ---------- */
+  .result-thanks{margin-top:14px;padding:4px 0 18px;text-align:center;font-size:12.5px;color:var(--ink-mute)}
+  .result-thanks a{color:var(--accent)}
+
+  /* 四级子目录锚点（STAR 五段 li）跳转时同样补偿固定顶栏高度 */
+  .phase-body li{scroll-margin-top:120px}
+
+  /* ---------- 环节卡片 ---------- */
+  .phase{
+    background:var(--card);border:1px solid var(--line-soft);border-radius:var(--radius);
+    box-shadow:var(--shadow);margin:0 0 44px;overflow:hidden;
+    opacity:0;transform:translateY(26px);
+    scroll-margin-top:120px; /* 与 h2/h3 一致：一级锚点跳转时补偿固定顶栏高度 */
+  }
+  .phase.seen{opacity:1;transform:none;transition:opacity .55s ease,transform .55s ease}
+  .phase-head{
+    display:flex;align-items:center;gap:16px;padding:24px 30px;
+    background:linear-gradient(135deg,var(--accent-soft) 0%,#fff 70%);
+    border-bottom:1px solid var(--line);
+  }
+  .phase-no{
+    flex:0 0 52px;height:52px;border-radius:12px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    color:#fff;font-size:17px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 12px rgba(37,99,235,.35);
+  }
+  .phase-title-box{min-width:0}
+  .phase-title{font-size:22px;margin:0;font-weight:800;color:var(--ink)}
+  .phase-sub{font-size:13px;color:var(--ink-mute);margin:3px 0 0}
+  .phase-arrow{margin-left:auto;color:var(--accent);font-size:12px;font-weight:700;white-space:nowrap}
+  .phase-body{padding:26px 34px 30px}
+
+  /* 文件分隔 */
+  .phase-file-sep{
+    margin:26px 0;border-top:2px dashed var(--line);position:relative;
+  }
+  .phase-file-sep::after{
+    content:"章节切换";position:absolute;top:-10px;right:0;
+    background:#fff;padding:0 10px;font-size:11px;color:var(--ink-mute);
+  }
+
+  /* ---------- 排版 ---------- */
+  .phase h2{
+    font-size:20px;margin:34px 0 14px;padding:9px 0 9px 13px;
+    border-left:5px solid var(--accent);
+    background:linear-gradient(90deg,var(--accent-soft) 0%,transparent 60%);
+    scroll-margin-top:120px;
+  }
+  .phase h3{font-size:16.5px;margin:24px 0 10px;color:#0f172a;scroll-margin-top:120px}
+  .phase h4{font-size:15px;margin:18px 0 8px;color:#111827}
+  .phase p{margin:10px 0}
+  .phase a{color:var(--accent);text-decoration:none}
+  .phase a:hover{text-decoration:underline}
+  .phase strong{color:#0f172a;font-weight:700}
+  .phase ul,.phase ol{margin:10px 0;padding-left:24px}
+  .phase li{margin:4px 0}
+  .phase hr{border:none;border-top:1px solid var(--line);margin:26px 0}
+  .phase blockquote{
+    margin:16px 0;padding:13px 18px;background:var(--quote-bg);
+    border-left:4px solid var(--quote-border);border-radius:0 8px 8px 0;
+    color:var(--ink-soft);position:relative;
+  }
+  .phase blockquote::before{
+    content:"TIP";
+    position:absolute;top:-9px;right:12px;font-size:10px;font-weight:800;letter-spacing:1px;
+    color:#fff;background:var(--quote-border);padding:1px 7px;border-radius:4px;
+  }
+  .phase blockquote p{margin:6px 0}
+  .phase blockquote strong{color:#1e3a8a}
+
+  /* 表格 */
+  .table-wrap{overflow-x:auto;margin:14px 0;border-radius:8px;box-shadow:0 0 0 1px var(--line)}
+  table{border-collapse:collapse;width:100%;font-size:13.8px}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  thead th{background:#f1f5fb;color:#111827;font-weight:700;position:sticky;top:0}
+  tbody tr:nth-child(odd){background:#fff}
+  tbody tr:nth-child(even){background:#fafbfd}
+  tbody tr:hover{background:#f0f7ff}
+  td code,th code{white-space:nowrap}
+
+  /* 代码块 */
+  .codebox{
+    margin:16px 0;border-radius:10px;overflow:hidden;
+    box-shadow:0 0 0 1px rgba(30,30,46,.35),0 4px 16px rgba(0,0,0,.12);
+  }
+  .codebar{
+    background:#2a2a3d;color:#a5b4fc;font-size:11px;letter-spacing:1.5px;
+    padding:6px 14px;display:flex;align-items:center;gap:6px;font-family:monospace;
+  }
+  .codebar::before{content:"";width:9px;height:9px;border-radius:50%;background:#f87171;display:inline-block}
+  pre{
+    background:var(--code-bg);color:var(--code-fg);
+    padding:16px 18px;overflow-x:auto;margin:0;
+    font-size:13px;line-height:1.6;
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,"Courier New",monospace;
+  }
+  code{
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,"Courier New",monospace;
+    font-size:.88em;background:#eef1f5;color:#c0341d;
+    padding:2px 6px;border-radius:4px;
+  }
+  pre code{background:none;color:inherit;padding:0;font-size:inherit;border-radius:0}
+
+  /* ---------- 折叠面板 ---------- */
+  details.fold{
+    border:1px solid var(--line);border-radius:10px;margin:16px 0;
+    background:#fbfcfe;overflow:hidden;
+  }
+  details.fold>summary{
+    cursor:pointer;padding:12px 16px;font-weight:700;color:var(--accent);
+    list-style:none;background:var(--accent-soft);font-size:14.5px;
+    display:flex;align-items:center;gap:8px;user-select:none;
+  }
+  details.fold>summary::-webkit-details-marker{display:none}
+  details.fold>summary::after{
+    content:"▾";margin-left:auto;color:var(--accent);transition:transform .2s;
+  }
+  details.fold:not([open])>summary::after{transform:rotate(-90deg)}
+  details.fold .fold-inner{padding:2px 16px 16px}
+  details.fold .fold-inner>*:first-child{margin-top:12px}
+
+  /* ---------- 下一环节 ---------- */
+  .phase-next{
+    padding:18px 30px;border-top:1px dashed var(--line);text-align:center;
+    background:linear-gradient(0deg,var(--accent-soft) 0%,transparent 100%);
+  }
+  .phase-next a{
+    display:inline-flex;align-items:center;gap:8px;
+    color:var(--accent);font-weight:700;font-size:13.5px;text-decoration:none;
+    padding:8px 18px;border-radius:20px;border:1px solid var(--accent-bg);
+    transition:all .2s;
+  }
+  .phase-next a:hover{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.3)}
+
+  /* ---------- 术语 tooltip（结构化卡片：解释/问答/场景，与《生成效果展示》一致） ---------- */
+  .term{cursor:help;border-bottom:1px dashed var(--accent);color:inherit}
+  .term:hover{color:var(--accent)}
+  #termTip{
+    position:fixed;max-width:min(440px,92vw);background:#111827;color:#e5e7eb;
+    font-size:12px;line-height:1.6;border-radius:10px;z-index:9999;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;text-align:left;
+    overflow:hidden;pointer-events:none;
+  }
+  .tip-head{
+    display:flex;align-items:center;gap:8px;padding:8px 14px;
+    background:rgba(37,99,235,.28);border-bottom:1px solid rgba(255,255,255,.12);
+  }
+  .tip-term{font-weight:800;font-size:13px;color:#fff}
+  .tip-level{margin-left:auto;font-size:11px;color:#93c5fd;white-space:nowrap}
+  .tip-body{padding:9px 14px 12px;max-height:58vh;overflow-y:auto}
+  .tip-sec{margin-top:9px}
+  .tip-sec:first-child{margin-top:0}
+  .tip-sec b{display:block;font-size:10px;letter-spacing:1.5px;color:#7dd3fc;margin-bottom:2px}
+  .tip-sec div{white-space:pre-line}
+
+  /* ---------- 笔记 ---------- */
+  .note-fab{
+    position:fixed;right:24px;bottom:24px;z-index:58;
+    width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    color:#fff;font-size:13px;font-weight:700;letter-spacing:1px;
+    box-shadow:0 8px 24px rgba(37,99,235,.45);transition:transform .2s;
+  }
+  .note-fab:hover{transform:translateY(-3px) scale(1.05)}
+  .note-drawer{
+    position:fixed;top:0;right:0;bottom:0;width:360px;max-width:92vw;z-index:70;
+    background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.18);
+    transform:translateX(105%);transition:transform .3s ease;
+    display:flex;flex-direction:column;
+  }
+  .note-drawer.open{transform:none}
+  .note-head{
+    display:flex;align-items:center;gap:10px;padding:14px 16px;
+    background:var(--topbar);color:#fff;
+  }
+  .note-head h3{margin:0;font-size:15px}
+  .note-close{margin-left:auto;background:none;border:none;color:#9ca3af;font-size:20px;cursor:pointer}
+  .note-close:hover{color:#fff}
+  .note-tabs{
+    display:flex;gap:6px;padding:10px 12px 0;flex-wrap:wrap;border-bottom:1px solid var(--line);
+  }
+  .note-tabs button{
+    border:1px solid var(--line);background:var(--line-soft);color:var(--ink-soft);
+    border-radius:14px;padding:4px 10px;font-size:12px;cursor:pointer;
+  }
+  .note-tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .note-area{flex:1;padding:12px;display:flex;flex-direction:column;min-height:0}
+  .note-area textarea{
+    flex:1;width:100%;resize:none;border:1px solid var(--line);border-radius:8px;
+    padding:12px;font-size:13.5px;line-height:1.6;font-family:inherit;
+    background:#fafbfc;min-height:200px;
+  }
+  .note-area textarea:focus{outline:none;border-color:var(--accent);background:#fff}
+  .note-hint{
+    margin-top:8px;padding:8px 10px;border-radius:8px;background:#f0f7ff;
+    border:1px solid var(--accent-bg);font-size:11.5px;color:var(--ink-soft);line-height:1.65;
+  }
+  .note-hint b{color:var(--accent)}
+  .note-foot{
+    display:flex;align-items:center;gap:10px;padding:10px 14px;
+    border-top:1px solid var(--line);
+  }
+  .note-save-tip{font-size:11.5px;color:var(--ink-mute)}
+  .note-foot button{
+    margin-left:auto;border:1px solid var(--line);background:#fff;color:var(--ink-soft);
+    padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;
+  }
+  .note-foot button:hover{border-color:#ef4444;color:#ef4444}
+
+  /* ---------- 生成告警横幅（P1-7：被跳过的章节提示） ---------- */
+  .build-warn{
+    margin:0 auto 16px;max-width:980px;padding:10px 16px;border-radius:10px;
+    background:#fffbeb;border:1px solid #fcd34d;color:#92400e;font-size:13px;line-height:1.6;
+  }
+  .build-warn b{color:#7c2d12}
+
+  /* ---------- 响应式 ---------- */
+  @media (max-width:1120px){
+    .sidebar{width:236px}
+    .main{margin-left:236px}
+    /* 二级小节不隐藏：侧边栏自身 overflow-y:auto，窄窗口下仍可滚动跳转，保留面试中快速定位小节的能力 */
+  }
+  @media (max-width:860px){
+    .sidebar{display:none}
+    .main{margin-left:0;padding:110px 14px 90px}
+    .mobile-steps{display:flex}
+    .phase-head{padding:18px 20px}
+    .phase-body{padding:20px 18px 24px}
+    .phase-title{font-size:19px}
+    .topbar-cur{display:none}
+  }
+  @media (min-width:861px){ .mobile-steps{display:none} }
+  @media (max-width:560px){
+    .phase h2{font-size:17.5px}
+    pre{font-size:12px;padding:12px}
+    table{font-size:12.8px}
+    .phase-no{flex-basis:44px;height:44px;font-size:15px}
+  }
+
+  /* ---------- 面试前 Checklist ---------- */
+  .check-card{
+    margin:0 0 24px;border:1px solid #bfdbfe;border-radius:12px;overflow:hidden;
+    background:linear-gradient(180deg,#eff6ff 0%,#fff 100%);
+  }
+  .check-head{
+    display:flex;align-items:center;gap:10px;padding:12px 18px;
+    background:var(--accent-bg);color:#1e3a8a;font-weight:800;font-size:14.5px;
+  }
+  .check-reset{
+    margin-left:auto;border:1px solid var(--accent);background:#fff;color:var(--accent);
+    padding:2px 10px;border-radius:12px;font-size:11.5px;cursor:pointer;
+  }
+  .check-reset:hover{background:var(--accent);color:#fff}
+  .check-item{
+    display:flex;align-items:flex-start;gap:10px;padding:10px 18px;
+    border-top:1px dashed #dbeafe;cursor:pointer;font-size:13.5px;line-height:1.65;
+  }
+  .check-item:hover{background:#f5f9ff}
+  .check-item input{margin-top:3px;flex:0 0 auto;accent-color:var(--accent)}
+  .check-item:has(input:checked){background:#f0fdf4}
+  .check-item:has(input:checked) span{color:var(--ink-mute);text-decoration:line-through}
+  .check-foot{
+    padding:9px 18px;border-top:1px dashed #dbeafe;font-size:12px;color:var(--ink-mute);
+    background:#f8fbff;
+  }
+
+  /* ---------- 面试后跟进 ---------- */
+  .followup-tip{
+    margin:0 0 18px;padding:11px 15px;border-radius:10px;
+    background:var(--accent-soft);border:1px solid var(--accent-bg);
+    font-size:13px;color:var(--ink-soft);line-height:1.7;
+  }
+</style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-title">{{COMP}} · 面试准备</div>
+    <div class="topbar-cur">当前环节：<b id="curPhase">面试准备</b></div>
+    <div class="topbar-sub">面试准备材料{{RESUME_TAG}}</div>
+    <div class="topbar-contact" id="topbarContact">{{CONTACT_HEAD}}</div>
+    <div class="progress" id="progress"></div>
+  </header>
+
+  <div class="mobile-steps" id="mobileSteps"></div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="steps-label">面试流程</div>
+      <nav id="steps"></nav>
+    </aside>
+    <main class="main">
+      {{BUILD_WARN_HTML}}
+      <div class="content" id="content"></div>
+      {{CONTACT_FOOT}}
+      <div class="result-thanks">感谢使用 面试准备助手（纯文本版），希望能对你的面试有所帮助。如有问题或建议，欢迎随时联系作者：<a href="mailto:llxstupg@163.com">llxstupg@163.com</a></div>
+    </main>
+  </div>
+
+  <button class="note-fab" id="noteFab" title="面试笔记">笔记</button>
+  <div class="note-drawer" id="noteDrawer">
+    <div class="note-head">
+      <h3>面试笔记</h3>
+      <button class="note-close" id="noteClose" aria-label="关闭">×</button>
+    </div>
+    <div class="note-tabs" id="noteTabs"></div>
+    <div class="note-area">
+      <textarea id="noteArea" placeholder="记录本环节要点、面试官反馈、追问盲点…（自动保存到本机）"></textarea>
+      <div class="note-hint"><b>用法：</b>上方按钮按环节切换笔记；内容随输入自动保存到本机，可随时回来补充。</div>
+    </div>
+    <div class="note-foot">
+      <span class="note-save-tip" id="noteSaveTip"></span>
+      <button id="noteClear">清空本环节</button>
+    </div>
+  </div>
+
+<script>
+const MD_FILES = {{FILES_JSON}};
+</script>
+<script>
+const GLOSSARY = {{GLOSSARY_JSON}};
+</script>
+<script>
+(function(){
+  "use strict";
+
+  // ================= 术语高亮 =================
+  function escReg(s){return s.replace(/[.*+?^${}()|[]\\]/g,"\\$&");}
+  var TERM_RE = (function(){
+    var keys = Object.keys(GLOSSARY).sort(function(a,b){return b.length-a.length;});
+    var parts = keys.map(function(k){
+      if(/[\u4e00-\u9fa5]/.test(k)) return escReg(k);
+      return "(?<![\\w\\u4e00-\\u9fa5])"+escReg(k)+"(?![\\w\\u4e00-\\u9fa5])";
+    });
+    return new RegExp(parts.join("|"),"g");
+  })();
+  function annotateText(html){
+    return html.replace(/(^|>)([^<]+)(?=<|$)/gm, function(m,pre,txt){
+      var out = txt.replace(TERM_RE, function(w){
+        return '<span class="term" data-key="'+w.replace(/"/g,"&quot;")+'">'+w+'</span>';
+      });
+      return pre + out;
+    });
+  }
+
+  function escapeHtml(s){
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+  function inline(text){
+    text = escapeHtml(text);
+    text = text.replace(/`([^`]+)`/g,function(m,c){return "<code>"+c+"</code>";});
+    text = text.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+    // md 链接 [文本](url) → 新窗口打开（公司背景官网/业务线官网可点击）
+    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    // 裸 URL 自动链接：前置非 字母数字/引号/尖括号（避免命中已生成的 href="" 与链接文本），新窗口打开
+    text = text.replace(/(^|[^"\w>])(https?:\/\/[^\s<"'）\]]+[^\s<"'），。；！？:）\]])/g,function(m,pre,u){
+      return pre+'<a href="'+u+'" target="_blank" rel="noopener noreferrer">'+u+'</a>';
+    });
+    return annotateText(text);
+  }
+
+  // ================= md 渲染 =================
+  function isSeparator(line){
+    return /^\s*\|?[\s:|-]+$/.test(line) && /\-/.test(line) && /\|/.test(line);
+  }
+  function isTableStart(lines,i){
+    return lines[i].indexOf("|")>=0 && i+1<lines.length && isSeparator(lines[i+1]);
+  }
+  function parseRow(line){
+    line = line.trim();
+    if(line.charAt(0)==="|") line=line.slice(1);
+    if(line.charAt(line.length-1)==="|") line=line.slice(0,-1);
+    return line.split("|").map(function(c){return c.trim();});
+  }
+  function parseList(lines,i){
+    var items=[];
+    while(i<lines.length){
+      var m=lines[i].match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);
+      if(!m) break;
+      items.push({indent:m[1].length,marker:m[2],text:m[3]});
+      i++;
+    }
+    var pos={i:0};
+    function build(parentIndent){
+      var ordered = items[pos.i] && /^\d+\.$/.test(items[pos.i].marker);
+      var tag = ordered?"ol":"ul";
+      var out="<"+tag+">";
+      while(pos.i<items.length && items[pos.i].indent===parentIndent){
+        var it=items[pos.i]; pos.i++;
+        out+="<li>"+inline(it.text);
+        if(pos.i<items.length && items[pos.i].indent>parentIndent){
+          out+=build(items[pos.i].indent);
+        }
+        out+="</li>";
+      }
+      out+="</"+tag+">";
+      return out;
+    }
+    return {html:build(items[0].indent),next:i};
+  }
+
+  function mdToHtml(md){
+    var lines=md.replace(/\r\n/g,"\n").split("\n");
+    var html=[];
+    var i=0;
+    while(i<lines.length){
+      var line=lines[i];
+      if(line.trim()===""){i++;continue;}
+      if(line.indexOf("```")===0){
+        var lang=line.slice(3).trim();
+        var code=[]; i++;
+        while(i<lines.length && lines[i].indexOf("```")!==0){code.push(lines[i]);i++;}
+        i++;
+        html.push('<div class="codebox"><div class="codebar">'+escapeHtml(lang||"code / 结构图")+'</div><pre><code>'+escapeHtml(code.join("\n"))+'</code></pre></div>');
+        continue;
+      }
+      if(isTableStart(lines,i)){
+        var rows=[];
+        rows.push(parseRow(lines[i])); i++;
+        i++;
+        while(i<lines.length && lines[i].indexOf("|")>=0 && lines[i].trim()!==""){
+          rows.push(parseRow(lines[i])); i++;
+        }
+        var t=['<div class="table-wrap"><table>'];
+        t.push("<thead><tr>");
+        for(var h=0;h<rows[0].length;h++) t.push("<th>"+inline(rows[0][h])+"</th>");
+        t.push("</tr></thead><tbody>");
+        for(var r=1;r<rows.length;r++){
+          t.push("<tr>");
+          for(var c=0;c<rows[r].length;c++) t.push("<td>"+inline(rows[r][c]||"")+"</td>");
+          t.push("</tr>");
+        }
+        t.push("</tbody></table></div>");
+        html.push(t.join(""));
+        continue;
+      }
+      if(line.indexOf("###### ")===0){html.push("<h6>"+inline(line.slice(7))+"</h6>");i++;continue;}
+      if(line.indexOf("##### ")===0){html.push("<h5>"+inline(line.slice(6))+"</h5>");i++;continue;}
+      if(line.indexOf("#### ")===0){html.push("<h4>"+inline(line.slice(5))+"</h4>");i++;continue;}
+      if(line.indexOf("### ")===0){html.push("<h3>"+inline(line.slice(4))+"</h3>");i++;continue;}
+      if(line.indexOf("## ")===0){html.push("<h2>"+inline(line.slice(3))+"</h2>");i++;continue;}
+      if(line.indexOf("# ")===0){html.push("<h1>"+inline(line.slice(2))+"</h1>");i++;continue;}
+      if(/^---+\s*$/.test(line)){html.push("<hr>");i++;continue;}
+      if(line.charAt(0)===">"){
+        var quote=[];
+        while(i<lines.length && lines[i].charAt(0)===">"){
+          quote.push(lines[i].replace(/^>\s?/,""));
+          i++;
+        }
+        html.push("<blockquote>"+mdToHtml(quote.join("\n"))+"</blockquote>");
+        continue;
+      }
+      if(/^(\s*)([-*]|\d+\.)\s+/.test(line)){
+        var r=parseList(lines,i);
+        html.push(r.html);
+        i=r.next;
+        continue;
+      }
+      var para=[];
+      while(i<lines.length){
+        var l=lines[i];
+        if(l.trim()==="") break;
+        if(l.indexOf("```")===0||l.charAt(0)==="#"||l.charAt(0)===">") break;
+        if(/^---+\s*$/.test(l)) break;
+        if(/^(\s*)([-*]|\d+\.)\s+/.test(l)) break;
+        if(isTableStart(lines,i)) break;
+        para.push(l); i++;
+      }
+      if(para.length) html.push("<p>"+inline(para.join(" "))+"</p>");
+      else { i++; }
+    }
+    return html.join("\n");
+  }
+
+  // ================= 数据 =================
+  var MD = MD_FILES || [];
+  var MAP = {};
+  MD.forEach(function(f){MAP[f.name]=f.md;});
+  var PHASES = {{PHASES_JSON}};
+
+  // ================= 面试前 Checklist（勾选自动保存到 localStorage） =================
+  function CHECKLIST_HTML(){
+    var saved={}; try{ saved=JSON.parse(localStorage.getItem("{{COMP}}_check")||"{}"); }catch(e){}
+    var items=[
+      ["site","打开上方公司官网（含主要业务线官网），核对公司定位与产品线——HRBP「为什么选我们」直接引用官网口径"],
+      ["num","背熟「附录_数字口径」表中的每个数字（参与度/规模/性能指标），面试时严禁说错"],
+      ["intro","掐表练习「01_自我介绍」90 秒完整版 2 遍（录音回放，找卡顿）"],
+      ["star","从「02_项目深挖」挑 2 个核心项目，完整过 STAR + 追问防守"],
+      ["qa","过一遍「03_技术场景题」高频题库，挑 3 题默写要点"],
+      ["ask","从「04_反问环节」准备 2 个反问问题（1 个技术 + 1 个团队/业务）"]
+    ];
+    var rows=items.map(function(it){
+      var on=saved[it[0]]?" checked":"";
+      return '<label class="check-item"><input type="checkbox" data-k="'+it[0]+'"'+on+'><span>'+it[1]+'</span></label>';
+    }).join("");
+    return '<div class="check-card" id="checkCard">'+
+      '<div class="check-head">🎯 面试前准备清单（勾选即自动保存）<button type="button" class="check-reset" id="checkReset">重置</button></div>'+
+      rows+
+      '<div class="check-foot">全部勾完后进入下一环节「自我介绍」。</div></div>';
+  }
+  // ================= 面试后跟进（静态模板：复盘 + 待办） =================
+  function FOLLOWUP_HTML(){
+    return [
+      '<div class="followup-tip">本页为面试<b>后</b>的收尾动作：24 小时内完成复盘。内容可直接复制使用。</div>',
+      '<h2>一、面试复盘模板（当天填写，越具体越好）</h2>',
+      '<div class="table-wrap"><table><thead><tr><th>面试官问题</th><th>我的回答要点</th><th>卡点 / 改进</th></tr></thead><tbody>',
+      '<tr><td>问题 1…</td><td>…</td><td>…</td></tr>',
+      '<tr><td>问题 2…</td><td>…</td><td>…</td></tr>',
+      '</tbody></table></div>',
+      '<h2>二、关键决策与下一步待办</h2>',
+      '<ul>',
+      '<li><b>记录：</b>HR 联系方式 / 面试时间线 / 承诺的下一步（如二面通知时间）</li>',
+      '<li><b>沉淀：</b>没答好的问题补进「03_技术场景题」，保持题库活水</li>',
+      '<li><b>跟进：</b>3~5 个工作日无反馈，礼貌邮件 / 微信询问进展</li>',
+      '<li><b>心态：</b>无论结果如何，今晚完成复盘即可放下，继续下一个面试</li>',
+      '</ul>'
+    ].join("\n");
+  }
+
+  var contentEl=document.getElementById("content");
+  var stepsEl=document.getElementById("steps");
+  var mobileStepsEl=document.getElementById("mobileSteps");
+  var progressEl=document.getElementById("progress");
+  var curPhaseEl=document.getElementById("curPhase");
+
+  // ================= 渲染环节 =================
+  var phaseEls=[];
+  var subCounter=0;
+
+  PHASES.forEach(function(ph, idx){
+    var sec=document.createElement("section");
+    sec.className="phase";
+    sec.id="phase-"+ph.id;
+
+    var body="";
+    ph.files.forEach(function(n, fi){
+      var md=MAP[n]||"";
+      if(fi>0) body+='<div class="phase-file-sep"></div>';
+      body+=mdToHtml(md);
+    });
+
+    // 面试前清单：注入第一个环节顶部；面试后跟进：静态模板（无源文件）
+    if(ph.id==="prep") body = CHECKLIST_HTML() + body;
+    if(ph.id==="followup") body = FOLLOWUP_HTML();
+
+    var next= idx<PHASES.length-1
+      ? '<div class="phase-next"><a href="#phase-'+PHASES[idx+1].id+'">进入下一环节 · '+PHASES[idx+1].title+' ↓</a></div>'
+      : '<div class="phase-next" style="background:var(--accent-soft)"><span style="color:var(--ink-mute);font-size:13px">—— 面试流程结束，祝顺利 ——</span></div>';
+
+    sec.innerHTML=
+      '<div class="phase-head">'+
+        '<span class="phase-no">'+ph.no+'</span>'+
+        '<div class="phase-title-box">'+
+          '<h1 class="phase-title">'+ph.title+'</h1>'+
+          '<p class="phase-sub">'+ph.sub+'</p>'+
+        '</div>'+
+        '<span class="phase-arrow">Step '+ph.no+' / '+PHASES.length+'</span>'+
+      '</div>'+
+      '<div class="phase-body">'+body+'</div>'+
+      next;
+
+    contentEl.appendChild(sec);
+    phaseEls.push(sec);
+
+    // 隐藏文件级 H1（环节头已给出标题）
+    sec.querySelectorAll(".phase-body h1").forEach(function(h){h.style.display="none";});
+  });
+
+  // ================= 折叠面板 =================
+  function level(tag){return {H1:1,H2:2,H3:3,H4:4,H5:5,H6:6}[tag]||99;}
+  function foldDeep(root){
+    var hs=Array.prototype.slice.call(root.querySelectorAll("h2,h3,h4"));
+    hs.forEach(function(h){
+      if(h.closest("details.fold")) return;
+      var t=h.textContent;
+      if(!/追问防守|高频题|速补|速记|盲点|可能被追问|新认知|进阶|工程颗粒度|核心差异|问题应对|阶段策略/.test(t)) return;
+      var lv=level(h.tagName);
+      var nodes=[];
+      var sib=h.nextElementSibling;
+      while(sib){
+        if(level(sib.tagName)<=lv) break;
+        nodes.push(sib);
+        sib=sib.nextElementSibling;
+      }
+      if(!nodes.length) return;
+      var det=document.createElement("details");
+      det.className="fold";
+      det.open=true;
+      if(h.id) det.id=h.id;
+      var sum=document.createElement("summary");
+      sum.innerHTML=h.innerHTML;
+      h.replaceWith(det);
+      det.appendChild(sum);
+      var inner=document.createElement("div");
+      inner.className="fold-inner";
+      nodes.forEach(function(n){inner.appendChild(n);});
+      det.appendChild(inner);
+    });
+  }
+  phaseEls.forEach(foldDeep);
+
+  // ================= 面试前清单交互（勾选保存 / 重置） =================
+  var checkCard=document.getElementById("checkCard");
+  if(checkCard){
+    var ckKey="{{COMP}}_check";
+    checkCard.addEventListener("change",function(e){
+      var k=e.target.getAttribute&&e.target.getAttribute("data-k");
+      if(!k) return;
+      var saved={}; try{ saved=JSON.parse(localStorage.getItem(ckKey)||"{}"); }catch(err){}
+      saved[k]=!!e.target.checked;
+      try{ localStorage.setItem(ckKey,JSON.stringify(saved)); }catch(err){}
+    });
+    var chkReset=document.getElementById("checkReset");
+    if(chkReset) chkReset.addEventListener("click",function(){
+      try{ localStorage.removeItem(ckKey); }catch(e){}
+      checkCard.querySelectorAll("input[type=checkbox]").forEach(function(cb){cb.checked=false;});
+    });
+  }
+
+  // ================= 步骤导航 =================
+  var navHtml="", mobHtml="";
+  PHASES.forEach(function(ph){
+    var sec=document.getElementById("phase-"+ph.id);
+    var subs="";
+    sec.querySelectorAll(".phase-body h2").forEach(function(h2){
+      if(!h2.id){h2.id="phsub-"+(subCounter++);}
+      subs+='<a class="sub" href="#'+h2.id+'">'+h2.textContent+'</a>';
+    });
+    // R7 结果格式规范：项目经验三级/四级子目录——三级=各项目（h3 含「简历编号」），四级=项目内 STAR 五段（背景S/任务T/行动A/结果R/追问防守）
+    if(ph.id==="project"){
+      sec.querySelectorAll(".phase-body h3").forEach(function(h3){
+        // 标题格式「### 项目名（简历编号 N）」或「### 项目名（简历编号 N，备注）」，数字后可能是逗号，只要求包含「简历编号 N」即可
+        if(!/简历编号\s*\d+/.test(h3.textContent)) return;
+        if(!h3.id){h3.id="phsub-"+(subCounter++);}
+        subs+='<a class="sub lv3" href="#'+h3.id+'">'+h3.textContent+'</a>';
+        var el=h3.nextElementSibling;
+        var starRe=/^(背景\s*S|任务\s*T|行动\s*A|结果\s*R|追问防守)/;
+        while(el){
+          if(el.tagName==="H2"||el.tagName==="H3") break;
+          if(el.tagName==="UL"||el.tagName==="OL"){
+            Array.prototype.forEach.call(el.querySelectorAll(":scope > li"),function(li){
+              var st=li.querySelector(":scope > strong");
+              if(!st) return;
+              var m=starRe.exec(st.textContent.trim());
+              if(!m) return;
+              if(!li.id){li.id="phsub-"+(subCounter++);}
+              subs+='<a class="sub lv4" href="#'+li.id+'">'+m[1].replace(/\s+/g," ")+'</a>';
+            });
+          }
+          el=el.nextElementSibling;
+        }
+      });
+    }
+    navHtml+='<div class="step-wrap" data-phase="'+ph.id+'">'+
+      '<a class="step" href="#phase-'+ph.id+'"><span class="step-no">'+ph.no+'</span>'+ph.title+'</a>'+
+      (subs?'<div class="step-subs">'+subs+'</div>':'')+
+      '</div>';
+    mobHtml+='<a class="mstep" href="#phase-'+ph.id+'">'+ph.no+' '+ph.title+'</a>';
+  });
+  stepsEl.innerHTML=navHtml;
+  mobileStepsEl.innerHTML=mobHtml;
+
+  // ================= 滚动：进度 + 当前环节 + 高亮 =================
+  var ticking=false;
+  var lastMob=null;
+  function update(){
+    var max=document.documentElement.scrollHeight-window.innerHeight;
+    var p=max>0?(window.scrollY||document.documentElement.scrollTop)/max:0;
+    progressEl.style.width=(p*100)+"%";
+
+    var cur=PHASES[0].id;
+    PHASES.forEach(function(ph){
+      var el=document.getElementById("phase-"+ph.id);
+      if(el && el.getBoundingClientRect().top<=window.innerHeight*0.38) cur=ph.id;
+    });
+    var curPh=PHASES.filter(function(ph){return ph.id===cur;})[0];
+    if(curPh) curPhaseEl.textContent=curPh.title;
+
+    stepsEl.querySelectorAll(".step-wrap").forEach(function(w){
+      w.classList.toggle("active",w.getAttribute("data-phase")===cur);
+    });
+    var activeH2=null;
+    document.querySelectorAll(".phase-body h2").forEach(function(h2){
+      if(h2.getBoundingClientRect().top<=window.innerHeight*0.45) activeH2=h2.id;
+    });
+    stepsEl.querySelectorAll(".step-subs a").forEach(function(a){
+      a.classList.toggle("active",a.getAttribute("href")==="#"+activeH2);
+    });
+    if(lastMob!==cur){
+      lastMob=cur;
+      mobileStepsEl.querySelectorAll(".mstep").forEach(function(a){
+        var act=a.getAttribute("href")==="#phase-"+cur;
+        a.classList.toggle("active",act);
+        if(act) a.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});
+      });
+    }
+    phaseEls.forEach(function(el){
+      if(el.getBoundingClientRect().top<window.innerHeight*0.92) el.classList.add("seen");
+    });
+    ticking=false;
+  }
+  window.addEventListener("scroll",function(){
+    if(!ticking){ticking=true;requestAnimationFrame(update);}
+  },{passive:true});
+  window.addEventListener("resize",function(){
+    if(!ticking){ticking=true;requestAnimationFrame(update);}
+  });
+  update();
+
+  // ================= 术语 tooltip（结构化卡片，JS 定位：视口内不截断） =================
+  var termTip=document.createElement("div");
+  termTip.id="termTip";
+  document.body.appendChild(termTip);
+  function hideTip(){termTip.style.display="none";}
+  // 结构化卡片渲染：glossary 条目支持两类结构——
+  //   对象 { level(1-3), levelNote, exp, qna?, scene? }：完整卡片（高亮 / 问答 / 场景）
+  //   字符串：单段解释卡片（风格一致，head + 技术解释）
+  function tipCardHtml(k,o){
+    if(typeof o==="string"){
+      return '<div class="tip-head"><span class="tip-term">'+escapeHtml(k)+'</span></div>'
+        + '<div class="tip-body"><div class="tip-sec"><b>技术解释</b><div>'+escapeHtml(o)+'</div></div></div>';
+    }
+    var stars="";
+    for(var i=0;i<3;i++) stars += i<o.level ? "★" : "☆";
+    var h='<div class="tip-head"><span class="tip-term">'+escapeHtml(k)+'</span>'
+      + (o.levelNote?'<span class="tip-level">'+stars+' '+escapeHtml(o.levelNote)+'</span>':'')
+      + '</div>'
+      + '<div class="tip-body">'
+      + '<div class="tip-sec"><b>技术解释</b><div>'+escapeHtml(o.exp||"")+'</div></div>';
+    if(o.qna) h+='<div class="tip-sec"><b>问题与回答</b><div>'+escapeHtml(o.qna)+'</div></div>';
+    if(o.scene) h+='<div class="tip-sec"><b>应用场景</b><div>'+escapeHtml(o.scene)+'</div></div>';
+    h+='</div>';
+    return h;
+  }
+  function showTip(el){
+    var k=el.getAttribute("data-key");
+    var o=GLOSSARY[k];
+    if(!o) return;
+    termTip.innerHTML=tipCardHtml(k,o);
+    termTip.style.display="block";
+    termTip.style.visibility="hidden";
+    var tw=termTip.offsetWidth, th=termTip.offsetHeight;
+    var r=el.getBoundingClientRect(), gap=8;
+    var x=r.left+r.width/2-tw/2;
+    x=Math.max(gap,Math.min(window.innerWidth-tw-gap,x));
+    var y=(r.top-th-gap>=gap)?r.top-th-gap:r.bottom+gap;
+    y=Math.max(gap,Math.min(window.innerHeight-th-gap,y));
+    termTip.style.left=x+"px";
+    termTip.style.top=y+"px";
+    termTip.style.visibility="visible";
+  }
+  document.addEventListener("mouseover",function(e){
+    var t=e.target;
+    var term=t.closest?t.closest(".term"):null;
+    if(term){showTip(term);return;}
+    hideTip();
+  });
+  document.addEventListener("mouseout",function(e){
+    var term=e.target.closest?e.target.closest(".term"):null;
+    if(!term) return;
+    var rel=e.relatedTarget;
+    if(!rel || !term.contains(rel)) hideTip();
+  });
+  window.addEventListener("scroll",hideTip,{passive:true});
+  window.addEventListener("resize",hideTip);
+
+  // ================= 笔记 =================
+  var fab=document.getElementById("noteFab");
+  var drawer=document.getElementById("noteDrawer");
+  var noteTabs=document.getElementById("noteTabs");
+  var noteArea=document.getElementById("noteArea");
+  var noteSaveTip=document.getElementById("noteSaveTip");
+  var noteCur=localStorage.getItem("{{COMP}}_note_cur")||PHASES[0].id;
+  var saveTimer=null;
+
+  PHASES.forEach(function(ph){
+    var b=document.createElement("button");
+    b.textContent=ph.no;
+    b.title=ph.title;
+    b.setAttribute("data-phase",ph.id);
+    noteTabs.appendChild(b);
+  });
+  noteTabs.addEventListener("click",function(e){
+    if(e.target.tagName==="BUTTON") switchNote(e.target.getAttribute("data-phase"));
+  });
+
+  function switchNote(id){
+    noteCur=id;
+    localStorage.setItem("{{COMP}}_note_cur",id);
+    noteArea.value=localStorage.getItem("{{COMP}}_note_"+id)||"";
+    noteTabs.querySelectorAll("button").forEach(function(b){
+      b.classList.toggle("active",b.getAttribute("data-phase")===id);
+    });
+    noteSaveTip.textContent="";
+  }
+  function flashTip(t){
+    noteSaveTip.textContent=t;
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(function(){noteSaveTip.textContent="";},1800);
+  }
+  noteArea.addEventListener("input",function(){
+    localStorage.setItem("{{COMP}}_note_"+noteCur,noteArea.value);
+    flashTip("已自动保存");
+  });
+  fab.addEventListener("click",function(){
+    drawer.classList.add("open");
+    switchNote(noteCur);
+    noteArea.focus();
+  });
+  document.getElementById("noteClose").addEventListener("click",function(){
+    drawer.classList.remove("open");
+  });
+  // 清空笔记：不用 confirm() 同步弹窗（内置浏览器不支持会卡死），改为「再点一次确认」二次确认
+  var noteClearBtn=document.getElementById("noteClear");
+  var clearArmed=false, clearTimer=null;
+  noteClearBtn.addEventListener("click",function(){
+    if(!clearArmed){
+      clearArmed=true;
+      noteClearBtn.textContent="再点一次确认清空";
+      clearTimeout(clearTimer);
+      clearTimer=setTimeout(function(){clearArmed=false;noteClearBtn.textContent="清空";},2600);
+      return;
+    }
+    clearArmed=false;
+    clearTimeout(clearTimer);
+    noteClearBtn.textContent="清空";
+    localStorage.removeItem("{{COMP}}_note_"+noteCur);
+    noteArea.value="";
+    flashTip("已清空");
+  });
+  drawer.addEventListener("click",function(e){
+    if(e.target===drawer) drawer.classList.remove("open");
+  });
+})();
+</script>
+</body>
+</html>

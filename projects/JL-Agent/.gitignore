@@ -1,0 +1,27 @@
+# 运行时数据（本地单用户）
+data/
+
+# 密钥与本地配置（不入库）
+.env
+config.json
+
+# 便携版构建产物（运行 portable/build_portable.py 生成）
+dist/
+build/
+_embed_cache/
+JL-Agent-portable.zip
+*.spec
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.venv_ci/
+venv/
+.venv_ci_build.log
+
+# 编辑器/系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

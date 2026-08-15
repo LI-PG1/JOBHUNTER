@@ -1,0 +1,7 @@
+# 运行配置与本地数据不入库
+config.json
+data/投递数据.json
+data/投递数据.json.tmp
+data/*.bak*
+*.log
+node_modules/

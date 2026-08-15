@@ -1,0 +1,25 @@
+{
+  "provider": {
+    "base_url": "https://api.deepseek.com",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "model": "deepseek-v4-flash"
+  },
+  "search": {
+    "api": {
+      "provider": "tavily",
+      "api_key_env": "TAVILY_API_KEY",
+      "interval_seconds": 1.1
+    }
+  },
+  "paths": {
+    "data_dir": "data",
+    "rules_dir": "rules",
+    "templates_dir": "templates"
+  },
+  "limits": {
+    "education_max": 3,
+    "internship_max": 2,
+    "jobs_max": 5,
+    "photo_max_bytes": 5242880
+  }
+}

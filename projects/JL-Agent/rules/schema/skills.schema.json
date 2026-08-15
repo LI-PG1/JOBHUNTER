@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "技能相关性判定规则",
+  "type": "object",
+  "required": ["version", "pass_threshold", "weak_threshold", "keyword_fallback"],
+  "properties": {
+    "version": {"type": "string"},
+    "pass_threshold": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+    "weak_threshold": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+    "keyword_fallback": {"type": "boolean"},
+    "prompt_instruction": {"type": "string"}
+  }
+}

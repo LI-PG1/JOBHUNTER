@@ -1,0 +1,25 @@
+{
+  "name": "ms-agent-lite",
+  "version": "0.4.19",
+  "description": "面试准备助手（纯文本版）面板（JD + 简历 → 面试准备材料）",
+  "scripts": {
+    "start": "node server.js",
+    "dryrun": "node gen_material.js --dryrun",
+    "build": "node build.js",
+    "verify": "node verify.js",
+    "clitools": "node cli_tools.js --probe",
+    "ocr-js": "node ocr_js.js --selftest"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.3",
+    "mammoth": "^1.8.0",
+    "onnxruntime-node": "^1.27.0",
+    "pdfjs-dist": "^6.2.108"
+  },
+  "allowScripts": {
+    "onnxruntime-node@1.27.0": true
+  }
+}

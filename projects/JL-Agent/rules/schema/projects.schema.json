@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "项目经历生成规则",
+  "type": "object",
+  "required": ["version", "quantity_table", "direction_projects", "evaluation"],
+  "properties": {
+    "version": {"type": "string"},
+    "quantity_table": {
+      "type": "object",
+      "properties": {
+        "one-page": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "two-pages": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}}
+      }
+    },
+    "direction_projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["direction"],
+        "properties": {
+          "direction": {"type": "string"},
+          "create": {"type": "boolean", "default": true},
+          "project_types": {"type": "array", "items": {"type": "string"}},
+          "skeletons": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "evaluation": {"type": "array", "items": {"type": "string"}}
+  }
+}

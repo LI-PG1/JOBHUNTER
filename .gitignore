@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.spec
+
+# 环境与密钥
+.env
+.env.*
+!.env.example
+
+# 运行时数据 / 检查点
+.langgraph_api/
+checkpoints/
+*.pckl
+
+# 构建产物
+dist/
+build/
+portable/build/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

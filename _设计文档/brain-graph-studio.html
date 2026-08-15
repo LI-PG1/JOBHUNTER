@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>JobHunter MasterGraph · LangGraph Studio 视图</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2128; --border: #30363d;
+    --text: #e6edf3; --dim: #8b949e;
+    --llm: #8957e5; --component: #58a6ff; --tool: #3fb950; --human: #d29922;
+    --judge: #e3b341; --start: #3fb950; --end: #f85149;
+    --hl: #ffd33d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 13px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  /* 顶栏（Studio 风格） */
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .logo { font-weight: 700; font-size: 14px; color: var(--component); }
+  .logo b { color: var(--judge); }
+  .crumb { color: var(--dim); }
+  .tag { padding: 2px 10px; border-radius: 12px; font-size: 11px; border: 1px solid var(--border); color: var(--dim); }
+  .tag.focus { border-color: var(--hl); color: var(--hl); }
+  .spacer { flex: 1; }
+  .btn { padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel2); color: var(--text); cursor: pointer; font-size: 12px; }
+  .btn:hover { border-color: var(--component); }
+  /* 主区 */
+  .main { flex: 1; display: flex; overflow: hidden; }
+  .canvas { flex: 1; position: relative; overflow: auto; }
+  svg { width: 1280px; height: 600px; display: block; }
+  /* 节点 */
+  .node rect { rx: 10; ry: 10; stroke-width: 1.5; fill: var(--panel2); }
+  .node.focus rect { stroke: var(--hl); stroke-width: 2.5; filter: drop-shadow(0 0 8px rgba(255,211,61,.35)); }
+  .node .t { font-size: 13px; font-weight: 600; fill: var(--text); }
+  .node .s { font-size: 10px; fill: var(--dim); }
+  .node .badge { font-size: 9px; }
+  /* 边 */
+  .edge path { fill: none; stroke: #484f58; stroke-width: 1.4; marker-end: url(#arrow); }
+  .edge.focus path { stroke: var(--hl); stroke-width: 2.2; }
+  .edge.dash path { stroke-dasharray: 6 4; }
+  .edge .lbl { font-size: 10px; fill: var(--dim); }
+  .edge.focus .lbl { fill: var(--hl); }
+  /* Inspector */
+  .inspector { width: 340px; border-left: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; overflow-y: auto; }
+  .insp-header { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .insp-header .id { font-size: 11px; color: var(--dim); }
+  .insp-header .name { font-size: 16px; font-weight: 700; margin: 2px 0 6px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .b-llm { background: rgba(137,87,229,.18); color: var(--llm); }
+  .b-component { background: rgba(88,166,255,.15); color: var(--component); }
+  .b-tool { background: rgba(63,185,80,.15); color: var(--tool); }
+  .b-human { background: rgba(210,153,34,.15); color: var(--human); }
+  .b-judge { background: rgba(227,179,65,.15); color: var(--judge); }
+  .b-start { background: rgba(63,185,80,.15); color: var(--start); }
+  .b-end { background: rgba(248,81,73,.15); color: var(--end); }
+  .insp-body { padding: 12px 16px; }
+  .sec { margin-bottom: 14px; }
+  .sec h4 { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .sec p, .sec li { font-size: 12.5px; color: var(--text); }
+  .sec ul { padding-left: 16px; }
+  .sec code { background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 11px; color: var(--component); }
+  .kv { display: flex; gap: 8px; padding: 3px 0; border-bottom: 1px dashed #21262d; font-size: 12px; }
+  .kv .k { color: var(--dim); min-width: 90px; }
+  .kv .v { color: var(--text); }
+  .hl { color: var(--hl); font-weight: 600; }
+  .foot { padding: 10px 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--dim); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 6px 16px; background: var(--panel); border-top: 1px solid var(--border); font-size: 11px; color: var(--dim); }
+  .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">JobHunter <b>MasterGraph</b></span>
+  <span class="crumb">/ graph / brain</span>
+  <span class="tag focus">● 焦点：N5/N7/N8 匹配反馈环</span>
+  <span class="tag">LangGraph Studio 视图</span>
+  <span class="spacer"></span>
+  <span class="tag">v2.0 · 2026-08-14</span>
+</div>
+
+<div class="main">
+  <div class="canvas">
+    <svg id="graph" viewBox="0 0 1280 600"></svg>
+  </div>
+
+  <div class="inspector">
+    <div class="insp-header" id="inspHeader"></div>
+    <div class="insp-body" id="inspBody"></div>
+    <div class="foot" id="inspFoot"></div>
+  </div>
+</div>
+
+<div class="legend">
+  <span><span class="dot" style="background:var(--llm)"></span>LLM 节点</span>
+  <span><span class="dot" style="background:var(--component)"></span>LangChain 组件</span>
+  <span><span class="dot" style="background:var(--tool)"></span>HTTP 工具 / 工具</span>
+  <span><span class="dot" style="background:var(--human)"></span>人工（interrupt）</span>
+  <span><span class="dot" style="background:var(--judge)"></span>规则判定</span>
+  <span><span class="dot" style="background:var(--hl)"></span>高亮 = 当前讨论的反馈环</span>
+</div>
+
+<script>
+// ---------- 节点数据（对齐架构 v2.0 §5.2 + Q6/Q7 方案） ----------
+const NODES = {
+  START: { x:20,  y:60, w:110, type:"start",  name:"START", sub:"入口",
+    desc:"用户一句话目标进入工作台。", io:[] },
+  N1:    { x:180, y:60, w:150, type:"llm",    name:"N1 画像解析", sub:"LLM",
+    desc:"LLM 解析用户一句话目标 → 结构化画像卡（城市/学历/技能线/技能）。",
+    io:["输入：user_goal", "输出：profile 画像卡"] },
+  N2:    { x:380, y:60, w:150, type:"judge",  name:"N2 画像完整性", sub:"规则校验",
+    desc:"确定性校验必填字段（education / grad_year / city / skills）。",
+    io:["缺 → N1B 追问；完整 → N3"] },
+  N1B:   { x:380, y:210, w:150, type:"human", name:"N1B 追问画像", sub:"人工 interrupt",
+    desc:"大脑 interrupt() 暂停，追问缺失的画像信息，补齐后回到 N1 重解析。",
+    io:["交互：追问缺失字段"] },
+  N3:    { x:580, y:60, w:170, type:"component", name:"N3 resume_agent", sub:"LangChain 组件",
+    desc:"JL 改造。单次单方向生成简历 → 版本注册表 line-vN；内部审核回路 + 联网检索方法论。",
+    io:["输入：direction / source_materials / jobs(1~5)", "输出：resume / version_id / ai_projects"] },
+  N4:    { x:800, y:60, w:170, type:"component", name:"N4 match_agent", sub:"LangChain 组件",
+    desc:"JS 改造。搜索回路（decide→execute→evaluate→brake）+ judge 混合判定 → match_results + gap_summary。",
+    io:["输入：profile / resume / target_jobs", "输出：match_results[] / gate 用字段 / gap_summary"] },
+  N5:    { x:1020, y:60, w:170, type:"judge", name:"N5 匹配质量判定", sub:"规则三指标 · 焦点",
+    desc:"全规则判定，LLM 不参与 pass/fail。三指标全部满足才 pass。",
+    io:["P1 accepted ≥ 5（收录量）", "P2 top3 均分 ≥ 75（质量线）", "P3 核心技能缺口 ≤ 40%（方向错位）", "分流：达标→N6；fail&轮次<2→N7；轮次满→N12"] },
+  N7:    { x:1240, y:60, w:190, type:"llm", name:"N7 差距分析", sub:"LLM · 焦点",
+    desc:"输入 gap_summary + 简历 + 画像 → resume_tips[]。核心能力：区分『没搜到』vs『搜到了但不匹配』。",
+    io:["输入：gap_summary（missing_skills / reject_reasons / search_health）", "输出：resume_tips[]（建议清单）"] },
+  N8:    { x:1240, y:230, w:190, type:"component", name:"N8 带建议重生成", sub:"resume_agent · 焦点",
+    desc:"用 N7 建议重生成简历。建议边界：只碰『简历可补的缺口』（技能关键词/项目侧重/summary），不碰事实；ai_flag 标注新编。",
+    io:["输入：resume + resume_tips[]", "输出：新简历版本 line-vN+1 → 回 N4 重匹配"] },
+  N12:   { x:1240, y:400, w:190, type:"judge", name:"N12 降级标记", sub:"轮次已满",
+    desc:"max_rounds=2 已满 → 标记降级，『有结果优先』照常进 prep（D7），不阻塞流程。",
+    io:["输出：degraded 标记 → N6"] },
+  N6:    { x:1020, y:430, w:170, type:"tool", name:"N6 prep_agent", sub:"HTTP 工具",
+    desc:"MS-Agent-Lite 改造。按投递简历版本 + 已投岗位 JD 生成 7 文件面试材料；profileHints 注入提问模式。",
+    io:["输入：company / resumeVer / ocrProjects / jdText / profileHints", "输出：7 文件 + 面经来源 + 术语映射"] },
+  N9:    { x:800, y:430, w:170, type:"human", name:"N9 投递简历", sub:"人工 interrupt",
+    desc:"展示投递清单（岗位/简历版本/理由/优先级），用户投递完成 / 跳过 / 要求改简历。Agent 只出候选，用户终选。",
+    io:["交互：投递完成 → N10；要求改简历 → N8"] },
+  N10:   { x:580, y:430, w:170, type:"tool", name:"N10 tracker", sub:"工具",
+    desc:"interview-tracker，纯记录不改造：投递/面试进度看板 + 跟进提醒。",
+    io:["输入：投递/面试记录"] },
+  N10B:  { x:380, y:430, w:170, type:"tool", name:"N10B MSR 复盘", sub:"Python 组件",
+    desc:"面试复盘组件：语音转文字/回忆 → LLM 输入审核 → 问题库沉淀（resumeVer 绑定）→ profileHints 回写 prep。",
+    io:["输出：user_report（问题分析+补强建议）", "联动：prep 拉取提问模式"] },
+  N11:   { x:180, y:430, w:150, type:"llm", name:"N11 总报告", sub:"LLM",
+    desc:"汇总全流程 → offer 对比 + 决策建议 + 总结报告。",
+    io:["输出：report"] },
+  END:   { x:20,  y:430, w:110, type:"end", name:"END", sub:"出口", desc:"流程结束。", io:[] },
+};
+
+// ---------- 边数据 ----------
+const EDGES = [
+  { f:"START", t:"N1", label:"" },
+  { f:"N1", t:"N2", label:"" },
+  { f:"N2", t:"N1B", label:"缺" },
+  { f:"N1B", t:"N1", label:"追问完善", dash:true },
+  { f:"N2", t:"N3", label:"完整" },
+  { f:"N3", t:"N4", label:"" },
+  { f:"N4", t:"N5", label:"" },
+  { f:"N5", t:"N6", label:"达标" },
+  { f:"N5", t:"N7", label:"fail · 轮次<2", focus:true },
+  { f:"N7", t:"N8", label:"resume_tips[]", focus:true },
+  { f:"N8", t:"N4", label:"重生成 → 重匹配", focus:true, dash:true },
+  { f:"N5", t:"N12", label:"轮次已满" },
+  { f:"N12", t:"N6", label:"降级标记" },
+  { f:"N6", t:"N9", label:"" },
+  { f:"N9", t:"N10", label:"投递完成/跳过" },
+  { f:"N9", t:"N8", label:"要求改简历", dash:true },
+  { f:"N10", t:"N10B", label:"" },
+  { f:"N10B", t:"N11", label:"" },
+  { f:"N11", t:"END", label:"" },
+];
+
+// ---------- Inspector 内容（焦点节点丰富详情） ----------
+const DETAIL = {
+  N5: {
+    name:"N5 匹配质量判定", badge:"b-judge", badgeText:"规则判定 · 无 LLM",
+    desc:"判定整批匹配结果『质量是否达标』。全规则确定性执行——LLM 不参与 pass/fail（延续『循环内可执行审核』），只做 N7 分析。",
+    items:[
+      ["P1 收录量", "accepted ≥ 5（min_jobs，防『没搜到』）"],
+      ["P2 质量线", "top3 final_score 均值 ≥ 75（防『量够质差』）"],
+      ["P3 技能覆盖", "核心技能缺口占比 ≤ 40%（防『方向错位』）"],
+      ["分流", "全过 → N6；fail 且 轮次<2 → N7；轮次已满 → N12"],
+    ],
+    io:{ in:"match_agent 输出：match_results + gate 用字段", out:"verdict: pass / fail（附缺项原因）" },
+  },
+  N7: {
+    name:"N7 差距分析", badge:"b-llm", badgeText:"LLM · 输入最小化",
+    desc:"核心能力：<span class='hl'>区分『没搜到』vs『搜到了但不匹配』</span>——两种故障的建议对象不同（搜索计划 vs 简历）。",
+    items:[
+      ["输入", "gap_summary + 简历 + 画像卡（不喂全量 results）"],
+      ["missing_skills", "缺失技能聚合（skill / jobs / ratio）→ 简历错位信号"],
+      ["reject_reasons", "被拒原因统计（地域/学历/技能缺口…）"],
+      ["search_health", "raw/accepted/gap/rounds/degraded → 搜索不足信号"],
+      ["输出", "resume_tips[] 建议清单 → N8"],
+    ],
+    io:{ in:"gap_summary（由 match_agent 导出）", out:"resume_tips[]" },
+  },
+  N8: {
+    name:"N8 带建议重生成", badge:"b-component", badgeText:"resume_agent · LangChain",
+    desc:"用 N7 建议重生成简历版本。<span class='hl'>建议边界：只碰『简历可补的缺口』</span>（技能关键词/项目侧重/summary 表述），<span class='hl'>不碰事实</span>（防编造，对齐 JL 事实锚点 + ai_flag）。",
+    items:[
+      ["输入", "resume + resume_tips[]"],
+      ["输出", "新版本 line-vN+1 → 回 N4 重匹配"],
+      ["护栏", "ai_flag 标注新编项目 + 用户确认；edited 锁定继承"],
+      ["终止", "max_rounds=2，超限走 N12 降级"],
+    ],
+    io:{ in:"resume + resume_tips[]", out:"新简历版本（line-vN+1）" },
+  },
+  N4: {
+    name:"N4 match_agent", badge:"b-component", badgeText:"LangChain 组件",
+    desc:"JS 改造（真 Agent 化 · 试点）：搜索回路 + judge 混合判定。",
+    items:[
+      ["搜索回路", "decide（LLM 决策器）→ execute（7 后端渠道映射）→ evaluate（LLM 评估）→ brake_check（五闸门）"],
+      ["judge 混合判定", "hard H1-H6（地域强制同城/学历-10/企业档/时效/来源/技能<gap）→ LLM 软分 jd_fit±30+quality±15 → final_score（-30/+20 护栏）"],
+      ["gap_summary", "由组件导出：missing_skills / reject_reasons / job_mix / top_jobs / search_health"],
+    ],
+    io:{ in:"profile / resume / target_jobs", out:"match_results[] + gate 用字段 + gap_summary" },
+  },
+  N6: {
+    name:"N6 prep_agent", badge:"b-tool", badgeText:"HTTP 工具",
+    desc:"MS-Agent-Lite 改造（Node 语义图化 + 质量回路）。只对已投递岗位生成材料。",
+    items:[
+      ["输入", "company / resumeVer / resumeText / ocrProjects / jdText / profileHints / quality 配置"],
+      ["输出", "7 文件（含面经来源/术语板块映射）+ quality 回执"],
+      ["联动", "profileHints 来自 MSR 提问模式（简历高频追问点/侧重/深度/广度）"],
+    ],
+    io:{ in:"投递岗位 JD + 简历版本 + profileHints", out:"7 文件面试材料" },
+  },
+  N9: {
+    name:"N9 投递简历", badge:"b-human", badgeText:"人工 interrupt",
+    desc:"human-in-the-loop：大脑 interrupt()，展示投递清单（岗位/简历版本/投递理由/优先级）。Agent 只出候选，用户终选。",
+    items:[
+      ["投递完成/跳过", "→ N10 tracker 记录进度"],
+      ["要求改简历", "→ N8 带建议重生成"],
+      ["语义", "投递 = 建议清单 + 用户动作 + 看板（长期状态，非流水线节点，C3）"],
+    ],
+    io:{ in:"投递清单候选（match_agent 产出）", out:"用户反馈（已投/跳过/改简历）" },
+  },
+  N10B: {
+    name:"N10B MSR 面试复盘", badge:"b-tool", badgeText:"Python 组件",
+    desc:"面试复盘：任意来源文字（含语音转文字）→ LLM 输入审核（语义纠错/标准化）→ 问题库沉淀。",
+    items:[
+      ["输入", "text / notes / company / jobTitle / resumeVer（面试所用简历版本）"],
+      ["审核", "LLM critic 语义纠错 → 标准化条目 {q,a,result,quality,source}"],
+      ["输出", "user_report（问题分析 + 补强建议）；profileHints 回写 prep"],
+      ["版本绑定", "问题库按 (resumeVer, tech, company, jobTitle) 索引，旧版本仅模式参考（降权）"],
+    ],
+    io:{ in:"面试文字/语音转写 + 元数据", out:"问题库 + user_report + profileHints" },
+  },
+};
+
+// ---------- SVG 渲染 ----------
+const svg = document.getElementById("graph");
+const NS = "http://www.w3.org/2000/svg";
+svg.insertAdjacentHTML("beforeend",
+  '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+  '<path d="M0,0 L10,5 L0,10 z" fill="#484f58"/></marker>' +
+  '<marker id="arrowHl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+  '<path d="M0,0 L10,5 L0,10 z" fill="#ffd33d"/></marker></defs>');
+
+const typeColor = { llm:"#8957e5", component:"#58a6ff", tool:"#3fb950", human:"#d29922", judge:"#e3b341", start:"#3fb950", end:"#f85149" };
+
+// 边
+const edgeEls = [];
+for (const e of EDGES) {
+  const a = NODES[e.f], b = NODES[e.t];
+  const ax = a.x + a.w/2, ay = a.y + (a.type==="judge" ? 62 : 32);
+  const bx = b.x + b.w/2, by = b.y + (b.type==="judge" ? 0 : 0);
+  const cls = "edge" + (e.focus ? " focus" : "") + (e.dash ? " dash" : "");
+  const g = document.createElementNS(NS, "g"); g.setAttribute("class", cls);
+  const path = document.createElementNS(NS, "path");
+  // 折线：水平出/入 + 中间垂直
+  const midY = ay + (by - ay) / 2;
+  const dx = Math.abs(bx - ax);
+  if (by > ay && dx < 80) { // 垂直小跨度
+    path.setAttribute("d", `M${ax},${ay} L${ax},${by}`);
+  } else {
+    const bend = Math.max(30, dx / 2);
+    path.setAttribute("d", `M${ax},${ay} C${ax+bend},${ay} ${bx-bend},${by} ${bx},${by}`);
+  }
+  path.setAttribute("fill","none");
+  path.setAttribute("marker-end", e.focus ? "url(#arrowHl)" : "url(#arrow)");
+  g.appendChild(path);
+  if (e.label) {
+    const t = document.createElementNS(NS,"text"); t.setAttribute("class","lbl");
+    const lx = (ax+bx)/2, ly = (ay+by)/2 - 6;
+    t.setAttribute("x", lx); t.setAttribute("y", ly); t.setAttribute("text-anchor","middle");
+    t.textContent = e.label;
+    g.appendChild(t);
+  }
+  svg.appendChild(g); edgeEls.push(g);
+}
+
+// 节点
+for (const id in NODES) {
+  const n = NODES[id];
+  const g = document.createElementNS(NS, "g");
+  g.setAttribute("class", "node" + (["N4","N5","N7","N8"].includes(id) ? " focus" : ""));
+  g.style.cursor = "pointer";
+  const rect = document.createElementNS(NS, "rect");
+  rect.setAttribute("x", n.x); rect.setAttribute("y", n.y);
+  rect.setAttribute("width", n.w); rect.setAttribute("height", 64);
+  rect.setAttribute("stroke", typeColor[n.type]);
+  g.appendChild(rect);
+  const name = document.createElementNS(NS, "text");
+  name.setAttribute("class","t"); name.setAttribute("x", n.x + n.w/2); name.setAttribute("y", n.y + 26);
+  name.setAttribute("text-anchor","middle"); name.textContent = n.name;
+  g.appendChild(name);
+  const sub = document.createElementNS(NS, "text");
+  sub.setAttribute("class","s"); sub.setAttribute("x", n.x + n.w/2); sub.setAttribute("y", n.y + 46);
+  sub.setAttribute("text-anchor","middle"); sub.textContent = n.sub;
+  g.appendChild(sub);
+  g.addEventListener("click", () => selectNode(id));
+  svg.appendChild(g);
+}
+
+// ---------- Inspector ----------
+function selectNode(id) {
+  const d = DETAIL[id];
+  const n = NODES[id];
+  document.querySelectorAll(".node").forEach(el => el.classList.remove("sel"));
+  if (d) {
+    const header = document.getElementById("inspHeader");
+    header.innerHTML = `<div class="id">node / ${id}</div>
+      <div class="name">${d.name}</div>
+      <span class="badge ${d.badge}">${d.badgeText}</span>`;
+    const body = document.getElementById("inspBody");
+    let html = `<div class="sec"><h4>说明</h4><p>${d.desc}</p></div>`;
+    if (d.items && d.items.length) {
+      html += `<div class="sec"><h4>关键参数</h4>` + d.items.map(kv =>
+        `<div class="kv"><span class="k">${kv[0]}</span><span class="v">${kv[1]}</span></div>`).join("") + `</div>`;
+    }
+    if (d.io) html += `<div class="sec"><h4>契约</h4><div class="kv"><span class="k">输入</span><span class="v"><code>${d.io.in}</code></span></div>
+      <div class="kv"><span class="k">输出</span><span class="v"><code>${d.io.out}</code></span></div></div>`;
+    body.innerHTML = html;
+    document.getElementById("inspFoot").innerHTML = `源自：4_大改造架构设计-v2.0.md §5.2 · 主题二讨论（Q6/Q7 已定稿）`;
+  }
+}
+
+// 默认选中焦点反馈环入口 N5
+selectNode("N5");
+</script>
+</body>
+</html>

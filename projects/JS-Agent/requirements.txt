@@ -1,0 +1,6 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+jsonschema>=4.22
+httpx>=0.27
+cryptography>=42.0   # 非 Windows 平台的 Key 加密（Windows 用系统 DPAPI）

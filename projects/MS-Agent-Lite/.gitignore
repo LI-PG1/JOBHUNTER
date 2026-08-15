@@ -1,0 +1,24 @@
+# 密钥与本地配置（绝不外传）
+MS-Agent-Lite工程文件/20_执行/config.json
+MS-Agent-Lite工程文件/20_执行/config.json.bak-*
+
+# 个人数据（简历、生成结果、个人面经）
+MS-Agent-Lite工程文件/10_知识库/简历基准/
+MS-Agent-Lite工程文件/30_产出/面试材料/
+MS-Agent-Lite工程文件/10_知识库/面经实证/
+MS-Agent-Lite工程文件/20_执行/_task_store.json  # 任务状态快照（含简历/JD 明文，仅供本地重启恢复）
+
+# 岗位画像：只发布模板，实际画像（含投递信息）不外传
+MS-Agent-Lite工程文件/10_知识库/岗位画像/*
+!MS-Agent-Lite工程文件/10_知识库/岗位画像/_模板-公司-岗位.md
+
+# 依赖与系统文件
+node_modules/
+runtime/node/                    # 内置 Node 解压产物（首次启动自动解压生成）
+runtime/node_modules.zip         # 依赖合并临时文件（首次启动自动合并后删除）
+.DS_Store
+Thumbs.db
+
+# 本地构建产物（打包安装版）
+tools/_staging/
+tools/_dist/

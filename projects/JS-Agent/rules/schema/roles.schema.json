@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "岗位本体 Schema",
+  "description": "JS-Agent 核心规则库：岗位本体。每个岗位含 id/名称/别名/行业/技能线/所需技能（含权重）/加分技能/学历/薪资参考。匹配引擎按 required_skills 加权打分。",
+  "type": "object",
+  "required": ["version", "roles"],
+  "properties": {
+    "version": { "type": "string" },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "line", "industry", "required_skills"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string", "description": "岗位显示名" },
+          "aliases": { "type": "array", "items": { "type": "string" }, "description": "岗位别名/俗称（用于 JD 标题匹配）" },
+          "industry": { "type": "string", "description": "所属行业 id（引用 industries.json）" },
+          "line": { "enum": ["application", "inference", "both"], "description": "岗位技能线属性" },
+          "education": { "type": "array", "items": { "type": "string" }, "description": "可接受学历（如 ['本科','硕士']）" },
+          "required_skills": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["skill", "weight"],
+              "properties": {
+                "skill": { "type": "string", "description": "技能 id（引用 skills.json）" },
+                "weight": { "type": "number", "description": "权重（1-5），核心技能给 4-5" }
+              }
+            },
+            "description": "必备技能需求列表，匹配打分主体"
+          },
+          "plus_skills": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["skill", "weight"],
+              "properties": {
+                "skill": { "type": "string" },
+                "weight": { "type": "number" }
+              }
+            },
+            "description": "加分技能列表"
+          },
+          "salary_ref": { "type": "string", "description": "薪资参考区间" },
+          "summary": { "type": "string", "description": "岗位一句话说明" }
+        }
+      }
+    }
+  }
+}

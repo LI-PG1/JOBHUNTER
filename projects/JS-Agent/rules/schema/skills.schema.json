@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "技能本体 Schema",
+  "description": "JS-Agent 核心规则库：技能本体。每个技能含 id/名称/别名/技能线/分类/关键词，用于画像解析与岗位匹配。借鉴 ESCO 技能本体（技能-别名-关键词三级 grounding）。",
+  "type": "object",
+  "required": ["version", "skills"],
+  "properties": {
+    "version": { "type": "string", "description": "规则库版本" },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "line", "category"],
+        "properties": {
+          "id": { "type": "string", "description": "技能唯一 ID，岗位本体的 required_skills/plus_skills 引用此 ID" },
+          "name": { "type": "string", "description": "技能显示名" },
+          "aliases": { "type": "array", "items": { "type": "string" }, "description": "别名/简写（如 vllm→vLLM、大模型推理→推理优化）" },
+          "line": {
+            "enum": ["application", "inference", "both", "core"],
+            "description": "技能线：application=应用线（Agent/RAG/微调），inference=推理线（部署/优化/量化），both=双线，core=通用基础"
+          },
+          "category": { "type": "string", "description": "技能分类（llm/agent/inference/infra/ml-core/data/cv/robotics）" },
+          "keywords": { "type": "array", "items": { "type": "string" }, "description": "匹配关键词（画像/JD 文本命中用，大小写不敏感）" }
+        }
+      }
+    }
+  }
+}

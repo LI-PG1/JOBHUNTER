@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      # 非 UTF-8 控制台（en-US runner）下中文 print 会抛 UnicodeEncodeError，统一为 UTF-8
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          # 固定微版本：与本地验证一致（PyInstaller bootloader 与 CPython 微版本强绑定，
+          # setup-python 3.12 默认装最新微版本会导致 EXE 构建失败）
+          python-version: '3.12.10'
+
+      - name: Install build deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt "pyinstaller==6.21.0"
+
+      # 顺序：先 portable（会 rmtree 重建 dist/），后 EXE（追加写入 dist/JL-Agent.exe），
+      # 避免 portable 重建时误删 EXE 导致 Release 上传缺失
+      - name: Build portable ZIP
+        run: |
+          Get-ChildItem portable/embed -ErrorAction SilentlyContinue | Select-Object Name, Length
+          Get-ChildItem dist -ErrorAction SilentlyContinue | Select-Object Name
+          python portable/build_portable.py 2>&1 | Tee-Object -FilePath portable_build.log
+          $exit = $LASTEXITCODE
+          if ($exit -ne 0 -or -not (Test-Path dist/JL-Agent-portable.zip)) {
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add portable_build.log
+            git commit -m "ci(diag): portable build log snapshot"
+            git push origin HEAD:main
+            exit 1
+          }
+
+      - name: Build standalone EXE
+        run: python portable/build_exe.py
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/JL-Agent.exe
+            dist/JL-Agent-portable.zip
+          generate_release_notes: true
+          overwrite: true
