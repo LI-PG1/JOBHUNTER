@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r job-hunter-orchestrator/requirements.txt
+          pip install -r components/resume_agent/lib/requirements.txt
+          pip install -r components/match_agent/requirements.txt
+          pip install -r components/prep_agent/requirements.txt
+      - name: Run full e2e (mock, no key required)
+        working-directory: job-hunter-orchestrator
+        env:
+          RUN_MODE: mock
+        run: python run_full_e2e.py
+      - name: Run component unit tests
+        env:
+          RUN_MODE: mock
+        run: |
+          cd components/match_agent && python -m tests
+          cd ../resume_agent && python -m tests

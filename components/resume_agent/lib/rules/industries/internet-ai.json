@@ -1,0 +1,13 @@
+{
+  "industry": "互联网/人工智能",
+  "keywords": ["大模型", "LLM", "Agent", "RAG", "PyTorch", "vLLM", "多模态", "提示词", "推理部署"],
+  "skills": {
+    "专业技能": ["大模型推理部署", "RAG 检索增强", "Agent 开发"],
+    "工具与框架": ["PyTorch", "Transformers", "Docker", "Milvus"],
+    "语言": ["Python", "SQL"]
+  },
+  "metric_style": "性能提升 8%~15%（1 位小数）、延迟降至 100~200ms、支持数百 QPS、成本降低 10%~20%",
+  "tone": "技术驱动，强调工程落地与学习能力，术语专业但可读",
+  "notes": ["避免空泛形容词，多用数据；实习生强调开源贡献/竞赛/课程项目"],
+  "project_types": ["智能体系统", "RAG 知识库", "模型推理服务"]
+}

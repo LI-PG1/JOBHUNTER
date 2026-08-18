@@ -61,11 +61,19 @@ async function main() {
   }
 
   const jd = readJD(jdArg);
+  // M3：质量回路 CLI 开关 --quality=on|warn-only|off（非法值直接报错退出，不静默忽略）
+  let quality;
+  const qIdx = process.argv.findIndex(a => a.startsWith("--quality="));
+  if (qIdx >= 0) {
+    const v = process.argv[qIdx].slice(10).trim();
+    if (["on", "warn-only", "off"].indexOf(v) >= 0) quality = { mode: v };
+    else { console.error('[gen] --quality= 仅支持 on | warn-only | off（收到 "' + v + '"）'); process.exit(2); }
+  }
   const outDir = path.join(ROOT, "30_产出", "面试材料", comp);
   fs.mkdirSync(outDir, { recursive: true });
   console.error("[gen] 输出目录: " + outDir);
 
-  const result = await runGenerate({ company: comp, resumeVer: ver, jdText: jd }, {
+  const result = await runGenerate({ company: comp, resumeVer: ver, jdText: jd, quality }, {
     onProgress: evt => {
       if (evt.type === "file") {
         if (evt.status === "done") console.error("[gen]   ✓ " + evt.name + ".md 写入 " + evt.bytes + " 字符");

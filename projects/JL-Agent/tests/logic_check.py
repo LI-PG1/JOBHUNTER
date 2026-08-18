@@ -269,7 +269,8 @@ async def t3():
         ok("进度收敛 1.0", abs(task["progress"] - 1.0) < 1e-6, str(task["progress"]))
 
         names = [e["event"] for e in task["events"]]
-        ok("阶段事件 ×3", names.count("task.stage") == 3, str(names))
+        ok("阶段事件 ×4", names.count("task.stage") == 4, str(names))
+        ok("审核事件 block.review 已发", any(e["event"] == "block.review" for e in task["events"]), str(names))
         for blk in ("analysis", "summary", "education", "internship", "skills", "honor", "projects", "build"):
             ok(f"block.done[{blk}] 已发", any(e["event"] == "block.done" and e["data"].get("block") == blk for e in task["events"]))
         ok("终态事件 task.done", "task.done" in names, str(names))

@@ -148,6 +148,27 @@ PROVIDERS: dict[str, dict[str, Any]] = {
 }
 
 # 约束强度（可配置）：strict / standard / loose
+# 每档含 judge（混合判定）与 search_agent（搜索回路）两个新配置段（改造设计 §4.3）
+_CONSTRAINT_EXTRA = {
+    "judge": {
+        "llm_enabled": True,          # false → 纯规则降级（行为≈改造前）
+        "batch_size": 20,             # 软性判定批量（条/批）
+        "weights": {"rule": 0.6, "llm": 0.4},
+        "dim_weights": {"jd_fit": 0.4, "job_quality": 0.3, "growth": 0.3},
+        "hard_city": True, "hard_degree": True, "hard_required_skills": True,
+        "required_skill_top": 3,      # 必填技能取画像前 N 个 confirmed 技能
+        "use_role_ontology": False,   # 是否启用 roles.json 权重参与（暂未启用）
+        "llm_downgrade_cap": 30,      # |rule-llm| 看空仲裁阈值
+        "llm_upgrade_floor": 20,      # LLM 看多仲裁阈值
+    },
+    "search_agent": {
+        "enabled": True,              # false → 完全走旧 while 循环
+        "max_llm_calls": 12,          # 决策+评估合计 LLM 调用预算（防烧 token）
+        "max_queries_per_round": 2,   # 每轮最多 query 数（沿用）
+        "evaluator_enabled": True,
+    },
+}
+
 CONSTRAINT_PRESETS: dict[str, dict[str, Any]] = {
     "strict": {
         "min_search_rounds": 3,
@@ -159,6 +180,7 @@ CONSTRAINT_PRESETS: dict[str, dict[str, Any]] = {
         "source_min_types": 3,
         "profile_retry": 2,
         "qa_retry": 3,
+        **_CONSTRAINT_EXTRA,
     },
     "standard": {
         "min_search_rounds": 3,
@@ -170,6 +192,7 @@ CONSTRAINT_PRESETS: dict[str, dict[str, Any]] = {
         "source_min_types": 2,
         "profile_retry": 2,
         "qa_retry": 3,
+        **_CONSTRAINT_EXTRA,
     },
     "loose": {
         "min_search_rounds": 2,
@@ -181,6 +204,7 @@ CONSTRAINT_PRESETS: dict[str, dict[str, Any]] = {
         "source_min_types": 1,
         "profile_retry": 1,
         "qa_retry": 2,
+        **_CONSTRAINT_EXTRA,
     },
 }
 
@@ -198,6 +222,16 @@ class Config:
     @property
     def constraints(self) -> dict[str, Any]:
         return CONSTRAINT_PRESETS.get(self.constraint_mode, CONSTRAINT_PRESETS["strict"])
+
+    @property
+    def judge(self) -> dict[str, Any]:
+        """混合判定配置（改造设计 §4.3 judge 段）。"""
+        return self.constraints.get("judge", {})
+
+    @property
+    def search_agent(self) -> dict[str, Any]:
+        """搜索回路配置（改造设计 §4.3 search_agent 段）。"""
+        return self.constraints.get("search_agent", {})
 
     def _load(self) -> None:
         self.storage_dir.mkdir(exist_ok=True)

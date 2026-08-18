@@ -66,8 +66,10 @@ class ProfileGate:
         # 经验年限可空（方案 v0.5：可选项）
         if "experience_years" not in card:
             card["experience_years"] = None
+        # 企业类型：仅保留 LLM 从画像文本明确推断出的类型；未声明 → 空（不过滤，
+        # 由前端多选兜底）。不给「全部 5 类」默认值，否则会稀释前端勾选的硬约束。
         if "company_types" not in card or not isinstance(card["company_types"], list):
-            card["company_types"] = ["央企", "国企", "大型", "中型", "小型"]
+            card["company_types"] = []
 
         return {"ok": not errors, "errors": errors, "warnings": warnings, "card": card}
 
@@ -143,9 +145,11 @@ class CollectionGate:
         score = round(100.0 * len(matched) / len(jd_ids), 1) if jd_ids else 0.0
         missing = [name for name, sid in zip(jd_skills, jd_ids) if sid not in profile_ids]
 
-        # 企业类型过滤（用户多选五档）
+        # 企业类型过滤（前端多选 ∪ 画像推断）。「未知」不再豁免：
+        # 无法归类的岗位按不在所选范围处理，避免漏网混入用户未选类型。
+        # selected_types 为空（前端全不勾 + 画像未声明）→ 不限，不过滤。
         etype = entry.get("enterprise_type", "未知")
-        if etype != "未知" and selected_types and etype not in selected_types:
+        if selected_types and etype not in selected_types:
             entry["status"] = "excluded"
             entry["exclude_reason"] = f"企业类型 {etype} 不在所选范围"
             return entry
@@ -209,13 +213,17 @@ class OutputGate:
             errors.append("source_url 非法：无来源链接的岗位禁止输出（防编造）")
         return errors
 
-    def cross_check(self, job: dict[str, Any], rule_score: float) -> list[str]:
-        """LLM 打分 vs 规则打分交叉验证，偏差 >15 分提示。"""
+    def cross_check(self, job: dict[str, Any], rule_score: float, final_score: float | None = None) -> list[str]:
+        """LLM 打分 vs 规则打分交叉验证（混合判定双护栏，改造设计 §2.5）：
+        |LLM−规则|>15 报错（沿用）；|final−规则|>25 报错（混合判定合并分护栏）。"""
         errors = []
         llm_score = job.get("match_score")
         if isinstance(llm_score, (int, float)) and rule_score is not None:
             if abs(float(llm_score) - float(rule_score)) > 15:
                 errors.append(f"打分交叉验证偏差过大：LLM={llm_score} vs 规则={rule_score}")
+        if final_score is not None and rule_score is not None:
+            if abs(float(final_score) - float(rule_score)) > 25:
+                errors.append(f"最终分交叉验证偏差过大：final={final_score} vs 规则={rule_score}")
         return errors
 
 

@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "行业模板库条目",
+  "type": "object",
+  "required": ["industry", "keywords", "skills", "metric_style", "tone", "notes", "project_types"],
+  "properties": {
+    "industry": {"type": "string"},
+    "keywords": {"type": "array", "items": {"type": "string"}},
+    "skills": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
+    "metric_style": {"type": "string"},
+    "tone": {"type": "string"},
+    "notes": {"type": "array", "items": {"type": "string"}},
+    "project_types": {"type": "array", "items": {"type": "string"}}
+  }
+}

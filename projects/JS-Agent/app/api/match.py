@@ -58,10 +58,15 @@ async def start_match(req: dict[str, Any]) -> dict[str, Any]:
         "profile_text": profile_text,
         "city": city,
         "max_results": max_results,
-        "company_types": req.get("company_types") or ["央企", "国企", "大型", "中型", "小型"],
+        # 前端多选透传；空列表 = 不限（企业类型过滤在 loop 内完成，前端已默认勾选全部）
+        "company_types": req.get("company_types") or [],
         "experience_years": req.get("experience_years"),
         "provider_id": req.get("provider_id"),
         "model": req.get("model"),
+        # M1 改造可选参数（改造设计 §5.1）：mode=scout|match；judge_llm/search_agent=false 时回退确定性行为
+        "mode": req.get("mode"),
+        "judge_llm": req.get("judge_llm"),
+        "search_agent": req.get("search_agent"),
     }
 
     def _worker() -> None:
@@ -86,6 +91,20 @@ async def get_match(job_id: str) -> dict[str, Any]:
     if state is None:
         raise HTTPException(status_code=404, detail="任务不存在或已过期")
     return state
+
+
+@router.get("/{job_id}/trace")
+async def get_match_trace(job_id: str) -> dict[str, Any]:
+    """搜索轨迹审计（改造设计 §5.1）：决策历史 + 收敛原因 + 判定统计。"""
+    state = tasks.get(job_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="任务不存在或已过期")
+    result = state.get("result") or {}
+    return {
+        "status": state.get("status"),
+        "trace": result.get("_trace") or {"history": [], "converge_reason": "", "llm_calls": 0, "rounds": 0},
+        "debug": result.get("_debug") or {},
+    }
 
 
 @router.delete("/{job_id}")

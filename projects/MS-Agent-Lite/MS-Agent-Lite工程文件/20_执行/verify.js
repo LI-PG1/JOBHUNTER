@@ -112,7 +112,8 @@ const REQUIRED_SECTIONS = {
   '01_自我介绍': ['## 一面策略'],
   '02_项目深挖': ['## 项目深挖进阶', '## 二面实战策略', '## 工程颗粒度'],
   '03_技术场景题': ['## C++ 问题应对', '## AI Agent 工程化高频题', '## RAG 高频题', '## 大模型部署高频题', '## 自动驾驶领域知识速补'],
-  '04_反问环节': ['## HRBP 面策略']
+  '04_反问环节': ['## HRBP 面策略'],
+  '附录_数字口径': ['数字口径', '数字陷阱'] // M3（宽松子串兼容 `## 一、数字口径总表` / `## 二、数字陷阱清单`）
 };
 let sectionsOK = true;
 if (mdFiles) {
@@ -148,6 +149,28 @@ if (mdFiles) {
 sopChecks.push({ code: 'SOP-02', name: '构建流程', state: 'PASS', detail: '模板装配 + 增量缓存已启用' });
 sopChecks.push({ code: 'SOP-03', name: '术语表注入', state: glRaw ? 'PASS' : 'WARN', detail: glRaw ? '' : 'GLOSSARY 未检出' });
 if (hasBuildWarn) sopChecks.push({ code: 'SOP-05', name: '章节兜底', state: 'WARN', detail: 'build 有章节被跳过（见 build-warn 横幅）' });
+
+// 10) 文件级质量回路检查点（SOP-07，M3）：读取 .quality.json 汇总，仅展示不改 critical 裁决
+// 白名单文件走质量回炉（规则+LLM），未生成 .quality.json 说明本次未启用质量回路（如 mode=off）→ WARN 提示
+try {
+  const qPath = path.join(dir, '.quality.json');
+  if (fs.existsSync(qPath)) {
+    const qs = JSON.parse(fs.readFileSync(qPath, 'utf8'));
+    const byFile = qs.map(q => q.file + ':' + (q.verdict || 'PASS') + (q.rounds > 1 ? '(' + q.rounds + '轮)' : ''));
+    const reworkLeft = qs.filter(q => (q.verdict || 'PASS') !== 'PASS' && q.remaining > 0);
+    // 回炉超限遗留 → WARN（提示人工复核，不改 critical 裁决）；全部达标 → PASS
+    sopChecks.push({
+      code: 'SOP-07', name: '质量回路', state: reworkLeft.length ? 'WARN' : 'PASS',
+      detail: reworkLeft.length
+        ? '回炉超限遗留 ' + reworkLeft.length + ' 项（' + reworkLeft.map(q => q.file + '×' + q.remaining).join('、') + '）; ' + byFile.join('、')
+        : byFile.join('、')
+    });
+  } else {
+    sopChecks.push({ code: 'SOP-07', name: '质量回路', state: 'WARN', detail: '未检出 .quality.json（本次未启用质量回炉或为旧版产物）' });
+  }
+} catch (e) {
+  sopChecks.push({ code: 'SOP-07', name: '质量回路', state: 'WARN', detail: '.quality.json 解析失败（' + String(e.message || e).slice(0, 80) + '）' });
+}
 
 // SOP-CHECK 汇总输出（SOP-03：验证与发布流程的检查点）
 console.log('\nSOP-CHECK 汇总:');

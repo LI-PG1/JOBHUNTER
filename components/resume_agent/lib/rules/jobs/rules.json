@@ -1,0 +1,6 @@
+{
+  "version": "1.0",
+  "method": "shared-domain-tag",
+  "semantic_fallback_threshold": 0.4,
+  "max_jobs": 5
+}

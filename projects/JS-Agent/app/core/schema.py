@@ -67,6 +67,10 @@ MATCH_LIST_SCHEMA = {
                     "city": {"type": "string"},
                     "salary": {"type": "string"},
                     "match_score": {"type": "number"},
+                    # 混合判定新增（改造设计 §2，可选字段兼容旧输出）
+                    "final_score": {"type": "number"},
+                    "llm_verdict": {"type": "object"},
+                    "resume_tips": {"type": "array", "items": {"type": "string"}},
                     "skill_line": {"enum": ["application", "inference", "both", "other"]},
                     "matched_skills": {"type": "array", "items": {"type": "string"}},
                     "missing_skills": {"type": "array", "items": {"type": "string"}},

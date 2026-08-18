@@ -10,6 +10,7 @@ import io
 import json
 import os
 import urllib.request
+from pathlib import Path
 
 import httpx
 from PIL import Image
@@ -17,8 +18,22 @@ from PIL import Image
 from dotenv import load_dotenv
 
 BASE = "http://127.0.0.1:8000"
+ROOT = Path(__file__).resolve().parent.parent
 load_dotenv()  # 加载工程根 .env（与服务器同源，用于判断是否具备 LLM 链路）
-HAS_LLM = bool(os.getenv("DEEPSEEK_API_KEY"))
+
+
+def _server_llm_ready() -> bool:
+    """与服务端 LLMProvider.active() 对齐：设置控制台 data/settings.json 存在启用且有 Key 的 provider。"""
+    try:
+        with open(ROOT / "data" / "settings.json", encoding="utf-8") as f:
+            s = json.load(f)
+    except (OSError, ValueError):
+        return False
+    return any(p.get("enabled") and p.get("apiKey") for p in (s.get("providers") or []))
+
+
+# 服务端 LLM 可用 = .env 默认 Key 或设置控制台已配置启用 provider（env 判断在 .env 缺 Key 时会漏判）
+HAS_LLM = bool(os.getenv("DEEPSEEK_API_KEY")) or _server_llm_ready()
 ok = 0
 fail = 0
 
@@ -195,7 +210,8 @@ else:
     if task_id:
         r = httpx.get(f"{BASE}/api/task/{task_id}", timeout=10)
         state = r.json()["data"]["state"]
-        check("任务已启动（非终态）", r.status_code == 200 and state in ("pending", "analyzing", "generating"),
+        check("任务已启动（非终态）", r.status_code == 200
+              and state in ("pending", "analyzing", "generating", "reviewing", "building"),
               str(r.json()))
         r = httpx.post(f"{BASE}/api/task/{task_id}/cancel", timeout=10)
         check("取消任务", r.status_code == 200 and r.json()["data"]["canceled"] is True, str(r.json()))
@@ -284,6 +300,9 @@ r = httpx.get(f"{BASE}/api/resume/{rid3}/export?format=docx", timeout=10)
 check("导出 DOCX", r.status_code == 200 and "wordprocessingml" in r.headers.get("content-type", "")
       and len(r.content) > 100, str(r.status_code))
 r = httpx.get(f"{BASE}/api/resume/{rid3}/export?format=html", timeout=10)
+check("导出 HTML", r.status_code == 200 and "text/html" in r.headers.get("content-type", ""),
+      str(r.status_code))
+r = httpx.get(f"{BASE}/api/resume/{rid3}/export?format=pdf", timeout=10)
 check("导出非法格式 → 40001", r.status_code == 400 and r.json()["code"] == 40001, str(r.json()))
 
 r = httpx.get(f"{BASE}/api/resume", timeout=10)

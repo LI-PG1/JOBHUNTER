@@ -16,6 +16,7 @@
 | 章节被跳过时 verify 依旧 PASS | SOP-03 验证检查点（章节白名单 + SOP-CHECK） |
 | 代码改了文档不更新，规范失效 | SOP-04 文档同步机制 |
 | 单个文件生成失败导致整条 build 中断 | SOP-05 组件兜底 + 单文件重试 + 告警 |
+| 生成"成功"但数字/口径/结构违规要等人工审核 | SOP-07 质量回路：生成后自动质检（D1~D5）+ 不合格自动回炉/告警 |
 
 ---
 
@@ -29,6 +30,7 @@
 | **SOP-04** | 文档同步 | 全部 | 结构/机制变更后，同步 README 与《面试 HTML 生成规范》等文档，变更留痕 |
 | **SOP-05** | 错误处理与兜底 | 生成 / 构建 / 审核 | 组件兜底占位、SKIPPED 告警、单文件重试、任务取消响应、超时保护 |
 | **SOP-06** | 生成规范统一 | 生成 / 审核 | 组件化 prompt、上下文上限、prompt 注入防线、数字口径红线 |
+| **SOP-07** | 质量回路 | 生成 / 验证 / 审核 | 生成后自动质检（D1 数字 / D2 项目 / D3 JD 契合 / D4 结构 / D5 术语），不合格自动回炉或告警 |
 
 ---
 
@@ -153,7 +155,44 @@ SOP-CHECK 汇总:
 
 ---
 
-## 8. SOP 落地对照（代码位置）
+## 8. SOP-07 质量回路（M3）
+
+**目的**：生成"成功"不等于质量达标——在发布门槛（SOP-03）之前对生成内容做**自动化质量闭环**：D1~D4 本地规则 + D5 术语 + D3 LLM JD 契合判定；不合格自动回炉（`on`）或标注告警（`warn-only`），杜绝数字口径/项目漂移/结构违规漏检。
+
+**五维检查（quality_check.js / reviewer.js）**：
+
+| 维度 | 检查内容 | 实现 | 裁决 |
+|---|---|---|---|
+| D1 | 数字口径：与《参与边界卡》/简历数字一致（含格式比对） | quality_check.js（确定性规则） | PASS / FAIL |
+| D2 | 项目/经历不漂移：另一版本项目不得作为【项目】出现，参与边界外不新增 | quality_check.js（确定性规则） | PASS / FAIL |
+| D3 | JD 契合：内容是否贴合 JD 重点（LLM 判定） | reviewer.js（调 LLM，可配 reviewFiles） | PASS / WARN / FAIL |
+| D4 | 结构完整性：章节标题/层级/大小写/重复段落 | quality_check.js（确定性规则） | PASS / FAIL |
+| D5 | 术语表一致性：与 glossary.js 术语对齐 | quality_check.js（确定性规则） | PASS / WARN |
+
+**模式**（`--quality=on|warn-only|off`，Web 生成请求 `body.quality.mode` 透传）：
+- `on`：D1~D5 任一 FAIL → 携 issues 自动回炉重写（上限 `maxRounds`，默认 1）；达上限仍 FAIL → 保留最新稿并标 WARN 交给用户。
+- `warn-only`：只质检并输出 `qualitySummary`，不自动重写；用户在前端结果页看明细后手动「回炉」（`/api/task/:id/rework-file`）。
+- `off`：不质检（默认关，与旧行为一致）。
+
+**执行步骤**（pipeline 内 `qualityLoopForFile`）：
+1. 单文件生成 done → `quality_check`（D1/D2/D4/D5）→ 需要时 `reviewer`（D3）。
+2. 全部 PASS → 进入下一文件；有 FAIL 且 `mode=on` → 回炉重写（原稿 + issues 并入 prompt）→ 重新质检，循环至达标或达上限。
+3. 每文件最终裁决写入 `30_产出/面试材料/<公司>/.quality.json`（与 build 缓存同目录，供 verify 与前端聚合）。
+
+**检查点**：`verify.js` 的 `SOP-CHECK 汇总` 新增：
+```
+  SOP-07 质量回路·D1 数字口径: PASS
+  SOP-07 质量回路·D2 项目不漂移: PASS
+  SOP-07 质量回路·D4 结构完整: PASS
+  SOP-07 质量回路·D5 术语一致: WARN
+  SOP-07 质量回路·D3 JD契合(LLM): PASS
+```
+
+**落地文件**：`20_执行/quality_config.js`（阈值/模式/维度开关）、`20_执行/quality_check.js`（D1/D2/D4/D5 规则）、`20_执行/reviewer.js`（D3 LLM 判定 + 多 provider fallback）、`20_执行/pipeline.js`（`generateOne` feedback + `qualityLoopForFile` + `runGenerate` 分流 + `qualitySummary` 收尾）、`20_执行/server.js`（quality 透传 + 任务响应聚合 + rework-file 端点）、`20_执行/verify.js`（SOP-07 检查点 + 附录数字口径章节）。
+
+---
+
+## 9. SOP 落地对照（代码位置）
 
 | SOP | 落地文件 |
 |---|---|
@@ -163,6 +202,7 @@ SOP-CHECK 汇总:
 | SOP-04 | 本文档 + `README.md` + `00_规范/面试html生成规范.md` |
 | SOP-05 | `20_执行/pipeline.js`（fallback/超时/取消）、`20_执行/build.js`（SKIPPED） |
 | SOP-06 | `20_执行/pipeline.js`（SYSTEM_GEN、上下文上限、components hint） |
+| SOP-07 | `20_执行/quality_config.js`、`quality_check.js`、`reviewer.js`、`pipeline.js`、`server.js`、`verify.js` |
 
 ---
 
@@ -171,3 +211,4 @@ SOP-CHECK 汇总:
 | 日期 | 变更 |
 |---|---|
 | 2026-08-05 | v1.0 初版：定义 SOP-01~06，随 v0.3.0（模板分层 + 增量构建 + 并行生成 + 组件库）落地 |
+| 2026-08-18 | v1.1 新增 SOP-07 质量回路（M3）：D1~D5 自动质检 + 自动回炉/告警，落地 quality_config / quality_check / reviewer / pipeline / server / verify；SOP-CHECK 汇总新增 SOP-07 检查点 |

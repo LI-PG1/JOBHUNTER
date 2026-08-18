@@ -7,7 +7,8 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { runGenerate, retryFile, runBuild, runVerify, runCheck, collectVerifyItems } = require("./pipeline.js");
+const { runGenerate, retryFile, runBuild, runVerify, runCheck, collectVerifyItems,
+  qualityLoopForFile, resolveQualityCfg, buildFiles, buildSharedCtx, readResumeCard, findPortrait, readInterviewNotes } = require("./pipeline.js");
 const { parseResumeFromBuffer } = require("./parse_resume.js");
 const { fetchJD } = require("./fetch_jd.js");
 const configApi = require("./config_api.js");
@@ -376,7 +377,9 @@ async function handleApi(req, res, url) {
         }
         // 4) 生成管线
         // 用独立对象传参并在结束后回写 searchInfo 到任务 input：retry 时直接复用联网搜索资料
-        const genInput = { company, resumeVer: body.resumeVer || "", resumeText, jdText, urls, refInfo: body.refInfo || "" };
+        // M3：body.quality（{mode:'on'|'warn-only'|'off'[, maxRounds?, reviewFiles?]}）透传 → 质量回路开关
+        const genInput = { company, resumeVer: body.resumeVer || "", resumeText, jdText, urls, refInfo: body.refInfo || "",
+          quality: body.quality && typeof body.quality === "object" ? body.quality : undefined };
         await runGenerate(genInput, {
           onProgress: evt => pushEvent(taskId, evt),
           signal: controller.signal
@@ -397,9 +400,21 @@ async function handleApi(req, res, url) {
     const t = tasks.get(taskMatch[1]);
     if (!t) return sendJson(res, 404, { error: "task 不存在" });
     if (req.method === "GET") {
+      // M3：质量回路汇总——优先取 done 事件的 qualitySummary（含轮次/裁决/剩余问题），
+      // 运行中/中断任务则按 review 事件按文件取最新裁决兜底
+      let quality = null;
+      if (t.result && Array.isArray(t.result.qualitySummary) && t.result.qualitySummary.length) {
+        quality = t.result.qualitySummary;
+      } else {
+        const lastByFile = new Map();
+        for (const evt of t.events) {
+          if (evt.type === "review" && evt.file) lastByFile.set(evt.file, { file: evt.file, rounds: evt.round + 1, verdict: evt.verdict, source: evt.source });
+        }
+        if (lastByFile.size) quality = [...lastByFile.values()];
+      }
       return sendJson(res, 200, { taskId: taskMatch[1], state: t.state,
         files: [...t.files.entries()].map(([name, f]) => ({ name, ...f })),
-        result: t.result, log: t.events.filter(e => e.type === "log").map(e => e.text) });
+        result: t.result, quality, log: t.events.filter(e => e.type === "log").map(e => e.text) });
     }
   }
   const sseMatch = /^\/api\/task\/([0-9a-f]+)\/events$/.exec(p);
@@ -470,7 +485,7 @@ async function handleApi(req, res, url) {
       try {
         const cardPath = path.join(ROOT, "10_知识库", "简历基准", "参与边界卡.md");
         const card = fs.existsSync(cardPath) ? fs.readFileSync(cardPath, "utf8") : "";
-        const c = await runCheck(outDir, card, input.resumeText || "", ver, evt => pushEvent(retryMatch[1], evt));
+        const c = await runCheck(outDir, card, input.resumeText || "", ver, evt => pushEvent(retryMatch[1], evt), retrySignal, input.jdText || "");
         check = { ok: c.ok, output: c.output };
         pushEvent(retryMatch[1], { type: "check", ok: c.ok, output: c.output });
       } catch (e) {
@@ -487,6 +502,88 @@ async function handleApi(req, res, url) {
       } finally {
         // 释放同岗位锁（P1-4）
         if (companyLocks.get(input.company) === retryMatch[1]) companyLocks.delete(input.company);
+      }
+    } catch (e) { return sendJson(res, 400, { ok: false, error: e.message }); }
+  }
+
+  // ---- M3 强制回炉（质量回路）：前端「回炉重写」按钮调用，白名单文件带上次审核意见重新生成 ----
+  const reworkMatch = /^\/api\/task\/([0-9a-f]+)\/rework-file$/.exec(p);
+  if (reworkMatch && req.method === "POST") {
+    const t = tasks.get(reworkMatch[1]);
+    if (!t) return sendJson(res, 404, { error: "task 不存在" });
+    try {
+      const body = JSON.parse(await readBody(req));
+      const input = t.input;
+      if (!input || !input.company) return sendJson(res, 400, { ok: false, error: "任务数据不完整" });
+      const file = buildFiles().find(f => f.name === body.name);
+      if (!file) return sendJson(res, 400, { ok: false, error: "未知文件: " + body.name });
+      const qCfg = resolveQualityCfg({ quality: input.quality });
+      if (qCfg.enabled && qCfg.reviewFiles.indexOf(body.name) < 0) {
+        return sendJson(res, 400, { ok: false, error: "「" + body.name + "」不在质量回炉白名单，可直接用「重试」重新生成" });
+      }
+      // 同岗位并发互斥（P1-4）：回炉期间其他任务不得并发写同目录
+      if (companyLocks.has(input.company) && companyLocks.get(input.company) !== reworkMatch[1]) {
+        return sendJson(res, 409, { ok: false, error: "「" + input.company + "」正在生成中，请稍后再试" });
+      }
+      companyLocks.set(input.company, reworkMatch[1]);
+      try {
+        // 可取消信号：与 retry 同策略（AbortController 不可逆，已 abort 时重建）
+        let reworkSignal = t.controller && !t.controller.signal.aborted ? t.controller.signal : null;
+        if (!reworkSignal) { t.controller = new AbortController(); reworkSignal = t.controller.signal; }
+        const ver = (input.resumeVer || "").toUpperCase();
+        const outDir = path.join(MATERIALS, input.company);
+        const card = readResumeCard();
+        const portrait = findPortrait(input.company);
+        const notes = readInterviewNotes();
+        const ctx = buildSharedCtx(input.company, ver, input.jdText || "", card, portrait, input.resumeText || "", input.urls || [], input.refInfo || "", notes, input.searchInfo || "");
+        pushEvent(reworkMatch[1], { type: "log", text: "强制回炉「" + body.name + "」（质量回路：" + qCfg.mode + "，上限 " + qCfg.maxRounds + " 轮）…" });
+        const qr = await qualityLoopForFile(ctx, outDir, file, evt => pushEvent(reworkMatch[1], evt), reworkSignal, qCfg,
+          { card, resumeText: input.resumeText || "", ver, jdText: input.jdText || "" });
+        if (qr.cancelled) return sendJson(res, 200, { ok: false, error: "任务已取消" });
+        // 更新 .quality.json 中该文件条目（保持 verify SOP-07 展示最新裁决）
+        try {
+          const qPath = path.join(outDir, ".quality.json");
+          if (fs.existsSync(qPath)) {
+            const qs = JSON.parse(fs.readFileSync(qPath, "utf8"));
+            const entry = {
+              file: body.name, rounds: qr.rounds.length, verdict: qr.verdict,
+              remaining: qr.remaining || 0, firstPass: qr.rounds.length === 1 && qr.verdict === "PASS",
+              issues: (qr.issues || []).map(i => ({ severity: i.severity, rule: i.rule, text: i.text }))
+            };
+            const idx = qs.findIndex(q => q.file === body.name);
+            if (idx >= 0) qs[idx] = entry; else qs.push(entry);
+            fs.writeFileSync(qPath, JSON.stringify(qs, null, 2), "utf8");
+          }
+        } catch (e) { /* 忽略 */ }
+        // 回炉成功 → 补跑 build + verify + check，确保 HTML 产物与审核随之更新
+        pushEvent(reworkMatch[1], { type: "log", text: "回炉重写完成，正在重新构建 HTML…" });
+        let build = null, verify = null;
+        try { const out = await runBuild(input.company, ver); build = { ok: true, stdout: out.trim() }; }
+        catch (e) { build = { ok: false, stdout: ((e && (e.stdout || e.message)) || String(e)).trim() }; }
+        pushEvent(reworkMatch[1], { type: "build", ok: build.ok, detail: build.stdout });
+        try { const out = await runVerify(input.company); verify = { ok: true, output: out.trim() }; }
+        catch (e) { verify = { ok: false, output: ((e && (e.stdout || e.message)) || String(e)).trim() }; }
+        pushEvent(reworkMatch[1], { type: "verify", ok: verify.ok, detail: verify.output });
+        let check = null;
+        try {
+          const c = await runCheck(outDir, card, input.resumeText || "", ver, evt => pushEvent(reworkMatch[1], evt), reworkSignal, input.jdText || "");
+          check = { ok: c.ok, output: c.output };
+          pushEvent(reworkMatch[1], { type: "check", ok: c.ok, output: c.output });
+        } catch (e) {
+          check = { ok: null, output: (e && e.message) || String(e) };
+          pushEvent(reworkMatch[1], { type: "log", text: "内容审核跳过（" + check.output.slice(0, 120) + "）" });
+        }
+        const needsVerify = collectVerifyItems(outDir);
+        pushEvent(reworkMatch[1], { type: "needs-verify", needsVerify });
+        pushEvent(reworkMatch[1], { type: "log",
+          text: "回炉完成：「" + body.name + "」" + (qr.verdict === "PASS" ? "通过质量审核" : "仍遗留 " + (qr.remaining || 0) + " 项，建议人工复核") +
+            " / build " + (build.ok ? "✓" : "✗") + " / verify " + (verify.ok ? "✓" : "✗") });
+        return sendJson(res, 200, { ok: true, verdict: qr.verdict, remaining: qr.remaining || 0,
+          rounds: qr.rounds, issues: qr.issues || [],
+          build: build.ok, verify: verify.ok, check: check && check.ok, needsVerify });
+      } finally {
+        // 释放同岗位锁（P1-4）
+        if (companyLocks.get(input.company) === reworkMatch[1]) companyLocks.delete(input.company);
       }
     } catch (e) { return sendJson(res, 400, { ok: false, error: e.message }); }
   }

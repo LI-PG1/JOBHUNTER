@@ -35,6 +35,7 @@
     logBox: $("logBox"), btnCancel: $("btnCancel"),
     cardResult: $("cardResult"), verifyBadge: $("verifyBadge"), retryArea: $("retryArea"),
     checkBox: $("checkBox"),
+    qualityBox: $("qualityBox"),
     previewEmpty: $("previewEmpty"), previewFrame: $("previewFrame"),
     mask: $("mask"), drawer: $("drawer"), btnSettings: $("btnSettings"), btnCloseDrawer: $("btnCloseDrawer"),
     provList: $("provList"), pName: $("pName"), pUrl: $("pUrl"), pModel: $("pModel"), pKey: $("pKey"),
@@ -52,11 +53,13 @@
 
   // ---------- 状态 ----------
   const FILE_NAMES = ["面试主线", "01_自我介绍", "02_项目深挖", "03_技术场景题", "04_反问环节", "05_面经分析与面试题库", "附录_数字口径", "00_公司背景"];
-  const state = { taskId: null, es: null, resume: null, urls: [], fileStatus: {}, log: [], providerTestName: null };
+  const state = { taskId: null, es: null, resume: null, urls: [], fileStatus: {}, log: [], providerTestName: null,
+    // M3：质量回路状态（每文件最新裁决 / done 汇总 / 强制回炉 busy 标记）
+    qualityByFile: {}, qualitySummary: null, qualityBusy: {} };
 
-  // 8 步固定权重进度条（R3：pending→parsing→fetching→generating→building→verifying→checking→done）
+  // 8 步固定权重进度条（R3：pending→parsing→fetching→generating→building→verifying→reviewing→rework→checking→done）
   // generating 区间（20→88）内按 8 个文件完成数细分推进
-  const STEP_WEIGHTS = { pending: 3, parsing: 10, fetching: 20, generating: 20, building: 90, verifying: 96, checking: 98, done: 100 };
+  const STEP_WEIGHTS = { pending: 3, parsing: 10, fetching: 20, generating: 20, building: 90, verifying: 96, reviewing: 97, rework: 97.5, checking: 98, done: 100 };
   function setProgress(pct, label) {
     if (!els.progFill || !els.progPct) return;
     const v = Math.max(0, Math.min(100, Math.round(pct)));
@@ -597,6 +600,7 @@
     if (evt.type === "step") {
       const map = { pending: ["run", "排队中…"], parsing: ["run", "解析简历…"], fetching: ["run", "读取网址…"],
         generating: ["run", "生成中…"], building: ["run", "渲染 HTML…"], verifying: ["run", "结构校验…"],
+        reviewing: ["run", "质量审核…"], rework: ["run", "回炉重写…"],
         checking: ["run", "内容审核…"], cancelled: ["warn", "已取消"], error: ["fail", "失败"] };
       const m = map[evt.name];
       if (m) setBadge(els.taskBadge, m[0], m[1]);
@@ -648,16 +652,86 @@
         ? "⚠ 更新【待联网核实】清单：当前 " + n + " 处待核实项（请核对来源后使用）"
         : "✓ 【待联网核实】清单已清空（当前产物无待核实标记）");
       renderVerifyBox(state.lastCheck, state.lastCheckOutput, evt.needsVerify);
+    } else if (evt.type === "review") {
+      // M3：质量回路每文件每轮裁决——更新面板并即时渲染
+      state.qualityByFile[evt.file] = { round: evt.round, verdict: evt.verdict, source: evt.source, issues: evt.issues || [] };
+      renderQualityBox();
     }
   }
   function connectSSE(taskId) {
     if (state.es) state.es.close();
     state.es = new EventSource("/api/task/" + taskId + "/events");
     state.es.onmessage = () => {};
-    ["step", "file", "log", "done", "error", "build", "verify", "needs-verify"].forEach(t => {
+    ["step", "file", "log", "done", "error", "build", "verify", "needs-verify", "review"].forEach(t => {
       state.es.addEventListener(t, e => { try { onTaskEvent(JSON.parse(e.data)); } catch (err) { /* ignore */ } });
     });
     state.es.onerror = () => { /* 服务端终态会主动关闭，浏览器会自动重连；任务结束后手动 close */ };
+  }
+  // M3：质量回路审核面板——每文件轮次/裁决/来源/遗留问题；REVISE 或回炉上限用尽可强制回炉
+  function renderQualityBox() {
+    const sum = state.qualitySummary;
+    const live = Object.keys(state.qualityByFile).map(k => state.qualityByFile[k]);
+    const merged = {};
+    if (sum) sum.forEach(s => { merged[s.file] = Object.assign({}, merged[s.file], s); });
+    live.forEach(r => { merged[r.file] = Object.assign({}, merged[r.file], r); });
+    const files = Object.keys(merged);
+    if (!files.length) { els.qualityBox.style.display = "none"; return; }
+    els.qualityBox.style.display = "block";
+    const rows = files.map(f => {
+      const m = merged[f];
+      const verdict = m.verdict || "PASS";
+      const color = verdict === "PASS" ? "var(--ok)" : "var(--err)";
+      const badge = verdict === "PASS" ? "✓ PASS" : "✗ REVISE";
+      const srcTxt = m.source === "rule" ? "规则" : m.source === "llm" ? "LLM" : "—";
+      const rounds = m.rounds !== undefined ? m.rounds + " 轮" : m.round !== undefined ? (m.round + 1) + " 轮" : "—";
+      const remain = m.remaining > 0
+        ? '<span style="color:var(--warn)">（遗留 ' + m.remaining + ' 项待处理）</span>' : "";
+      const issues = (m.issues || []).slice(0, 3).map(i =>
+        '<div style="font-size:12px;color:var(--ink-soft);margin-left:16px">· [' + i.code + "/" + i.severity + "] " +
+        String(i.item || "").replace(/</g, "&lt;") + "</div>").join("");
+      const busy = !!state.qualityBusy[f];
+      const btn = (verdict === "REVISE" || (busy && state.qualityBusy[f].reworkable))
+        ? '<button class="btn ghost sm qrework" data-name="' + f + '"' + (busy ? " disabled" : "") + '>' +
+          (busy ? "回炉中…" : "回炉重写") + "</button>"
+        : "";
+      return '<div class="file-row" style="align-items:flex-start">' +
+        '<span class="nm" style="padding-top:3px">' + f + '.md</span>' +
+        '<span class="mini" style="color:' + color + ';font-weight:600;padding-top:3px">' + badge + "</span>" +
+        '<span class="mini" style="color:var(--ink-mute);padding-top:3px">' + srcTxt + " · " + rounds + "</span>" +
+        btn +
+        '<div style="flex:1;min-width:0">' + issues + remain + "</div></div>";
+    }).join("");
+    els.qualityBox.innerHTML =
+      '<div class="hint-line" style="margin:0 0 8px"><span style="font-weight:600">质量回路审核（M3）</span>' +
+      '<span class="mini" style="color:var(--ink-mute)">规则 + LLM 双闸门，REVISE 已带意见回炉</span></div>' + rows;
+    els.qualityBox.querySelectorAll(".qrework").forEach(b => b.addEventListener("click", () => reworkFile(b.dataset.name)));
+  }
+  async function reworkFile(name) {
+    if (!state.taskId) return;
+    state.qualityBusy[name] = { reworkable: true };
+    renderQualityBox();
+    try {
+      const r = await api("/api/task/" + state.taskId + "/rework-file", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      });
+      if (r.ok) {
+        appendLog("✓ " + name + " 强制回炉完成（verdict=" + r.verdict + "）");
+        if (r.verdict === "REVISE") appendLog("⚠ " + name + " 回炉上限用尽仍 REVISE（遗留 " + r.remaining + " 项，建议人工复核）");
+        // 回炉后服务端已重跑 build/verify/check；用 review 事件刷新本文件裁决
+        if (r.rounds && r.rounds.length) {
+          const last = r.rounds[r.rounds.length - 1];
+          state.qualityByFile[name] = { round: last.round, verdict: last.verdict, source: last.source, issues: last.issues || [] };
+        }
+      } else {
+        appendLog("✗ " + name + " 强制回炉失败：" + (r.error || "未知错误"));
+      }
+    } catch (e) {
+      appendLog("✗ " + name + " 强制回炉异常：" + e.message);
+    } finally {
+      delete state.qualityBusy[name];
+      renderQualityBox();
+    }
   }
   // 渲染结果区的内容审核 + 联网核实清单（v0.4.9 代码审查修复：从 showResult 抽取，
   // 供单文件重试后的 needs-verify 事件复用刷新，保证清单与产物一致）
@@ -725,6 +799,9 @@
     state.lastCheck = evt && evt.check;
     state.lastCheckOutput = evt && evt.checkOutput;
     renderVerifyBox(evt && evt.check, evt && evt.checkOutput, evt && evt.needsVerify);
+    // M3：质量回路汇总（done 事件携带全部白名单文件审核结果）
+    state.qualitySummary = evt && evt.qualitySummary ? evt.qualitySummary : state.qualitySummary;
+    renderQualityBox();
     // 重试区：列出失败文件
     const failed = FILE_NAMES.filter(n => state.fileStatus[n] === "failed");
     if (failed.length) {
@@ -833,6 +910,7 @@
     els.previewEmpty.style.display = "block";
     els.previewFrame.style.display = "none";
     state.fileStatus = {}; state.log = [];
+    state.qualityByFile = {}; state.qualitySummary = null; state.qualityBusy = {};
     FILE_NAMES.forEach(n => { state.fileStatus[n] = "idle"; });
     els.logBox.innerHTML = "";
     renderFileList();

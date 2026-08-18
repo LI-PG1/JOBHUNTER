@@ -123,6 +123,31 @@ def test_gate2_enterprise_filter():
     assert "企业类型" in r.get("exclude_reason", "")
 
 
+def test_gate2_unknown_type_filtered():
+    """「未知」类型不再豁免：用户明确勾选类型时，无法归类的岗位按不在所选范围排除。"""
+    entry = {"jd_text": "vLLM 推理优化", "updated_at": "2026-08-01", "enterprise_type": "未知"}
+    r = collection.judge(entry, ["vLLM", "K8s"], [], ["央企"])
+    assert r["status"] == "excluded"
+    assert "企业类型" in r.get("exclude_reason", "")
+
+
+def test_gate2_empty_selected_types_unlimited():
+    """selected_types 为空（前端全不勾 + 画像未声明）= 不限，企业类型不过滤（含「未知」）。"""
+    entry = {"jd_text": "负责 vLLM 部署、RAG 系统、LoRA 微调，Docker 容器化", "updated_at": "2026-08-01",
+             "enterprise_type": "未知"}
+    r = collection.judge(entry, ["vLLM", "RAG", "LoRA", "Docker"], [], [])
+    assert r["status"] == "accepted"  # 匹配度满分，未被企业类型过滤
+
+
+def test_gate2_merged_types_respects_frontend_and_profile():
+    """合并集合（前端 ∪ 画像）中任一端命中即可收录：画像声明「国企」不被前端只勾「央企」忽略。"""
+    entry = {"jd_text": "负责 vLLM 部署、RAG 系统、LoRA 微调，Docker 容器化", "updated_at": "2026-08-01",
+             "enterprise_type": "国企"}
+    merged = ["央企", "国企"]  # 前端勾「央企」∪ 画像推断「国企」
+    r = collection.judge(entry, ["vLLM", "RAG", "LoRA", "Docker"], [], merged)
+    assert r["status"] == "accepted"
+
+
 def test_gate2_stale_filter():
     entry = {"jd_text": "vLLM 推理优化", "updated_at": "2025-01-01", "enterprise_type": "中型"}
     r = collection.judge(entry, ["vLLM", "RAG", "LoRA"], [], ["央企", "国企", "大型", "中型", "小型"])

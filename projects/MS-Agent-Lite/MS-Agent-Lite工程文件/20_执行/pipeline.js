@@ -10,6 +10,9 @@ const { execFile } = require("child_process");
 const { askText } = require("./llm_gateway.js");
 const { getWebSearchConfig } = require("./config_api.js");
 const { webSearch } = require("./web_search.js");
+const { runRuleCheck } = require("./quality_check.js");
+const { reviewFiles, buildFeedbackPrompt } = require("./reviewer.js");
+const { getQualityConfig, mergeQualityCfg } = require("./quality_config.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const TOOLS = __dirname;
@@ -238,9 +241,11 @@ function detectTruncation(name, md) {
   }
   return problems;
 }
-async function generateOne(ctx, outDir, file, onProgress, signal, attempt = 1) {
-  const prompt = ctx + "\n\n【本次要生成的文件】" + file.name + ".md\n" + file.hint +
+async function generateOne(ctx, outDir, file, onProgress, signal, attempt = 1, feedback) {
+  let prompt = ctx + "\n\n【本次要生成的文件】" + file.name + ".md\n" + file.hint +
     "\n\n请只输出该文件完整 Markdown 内容（不要解释、不要围栏）。";
+  // M3：质量回路回炉——审核意见以【回炉重写要求】段追加进 prompt（非整文件重采样）
+  if (feedback && String(feedback).trim()) prompt += "\n\n" + String(feedback).trim();
   const text = stripFence(await askText(prompt, {
     maxTokens: file.maxTokens || 4096,
     signal,
@@ -314,8 +319,8 @@ function runVerify(comp) {
 
 // ---------- 生成结果审核（LLM 一致性校验，尽力而为，失败仅告警） ----------
 // 对照 参与边界卡/上传简历 检查关键文件是否存在：边界外数字、编造项目、版本不符
-async function runCheck(outDir, card, resumeText, ver, onProgress, signal) {
-  const targets = ["01_自我介绍.md", "02_项目深挖.md", "附录_数字口径.md"];
+async function runCheck(outDir, card, resumeText, ver, onProgress, signal, jdText) {
+  const targets = ["面试主线.md", "01_自我介绍.md", "02_项目深挖.md", "附录_数字口径.md"];
   const parts = [];
   for (const f of targets) {
     const p = path.join(outDir, f);
@@ -329,6 +334,7 @@ async function runCheck(outDir, card, resumeText, ver, onProgress, signal) {
     "【基准】本次采用：" + verLine + "。",
     hasCard ? "【参与边界卡（数字口径权威）】\n" + card : "【基准说明】未配置参与边界卡，以用户上传简历为唯一数字口径来源。",
     resumeText ? "【用户上传简历文本】\n" + resumeText : "",
+    jdText ? "【岗位JD】\n" + jdText : "",
     "",
     "【待审核材料】\n" + parts.join("\n\n"),
     "",
@@ -336,6 +342,7 @@ async function runCheck(outDir, card, resumeText, ver, onProgress, signal) {
     "1. 数字口径：是否出现" + (hasCard ? "参与边界卡/上传简历" : "用户上传简历") + "之外的数字（如性能指标、规模、百分比），或与口径不符；",
     "2. 项目真实性：是否出现基准中不存在的项目/模型名/参与经历；",
     "3. 版本一致性：材料使用的项目是否均来自" + verLine + "。",
+    "4. JD 契合度：材料是否覆盖 JD 的核心职责与技术要求（明显缺失时提示，不阻断）。",
     "【输出】只输出结论：无问题则首行写 PASS；有问题则首行写 WARN，随后逐条列出：文件/问题/建议修正。不要输出其他内容。"
   ].filter(s => s !== "").join("\n");
   const text = stripFence(await askText(prompt, {
@@ -346,6 +353,69 @@ async function runCheck(outDir, card, resumeText, ver, onProgress, signal) {
   }));
   const ok = /^\s*PASS/i.test(text);
   return { ok, output: text.trim() };
+}
+
+// ---------- M3 文件级质量回路（SOP-07） ----------
+// 单文件循环：生成 → 规则审核（零 token，critical 先行）→ LLM 审核（D3 JD 契合）→
+//             REVISE 带意见回炉（maxRounds 轮）→ 复审；超限保留当前版标记 REVISE，不阻断交付
+// base: { card, resumeText, ver, jdText }（审核基准）
+// 返回 { ok, rounds, bytes, verdict, remaining?, issues?, cancelled? }
+async function qualityLoopForFile(ctx, outDir, file, onProgress, signal, qCfg, base) {
+  const { card, resumeText, ver, jdText } = base;
+  const rounds = [];
+  let feedback = null;
+  let lastBytes = 0;
+  for (let round = 0; round <= qCfg.maxRounds; round++) {
+    if (signal && signal.aborted) return { ok: false, cancelled: true, rounds, bytes: lastBytes };
+    if (round > 0) {
+      // 回炉复审前留快照 <文件>.r<N>.md（留痕）
+      onProgress({ type: "step", name: "reviewing", status: "running", detail: file.name + " 第 " + round + " 轮回炉复审" });
+      const src = path.join(outDir, file.name + ".md");
+      try { fs.copyFileSync(src, path.join(outDir, file.name + ".r" + round + ".md")); } catch (e) { /* 忽略 */ }
+    }
+    lastBytes = await generateOne(ctx, outDir, file, onProgress, signal, 1, feedback);
+
+    // 1) 规则可查项（零 token）：D1 数字口径 / D2 项目真实性 / D4 结构 / D5 术语
+    const rule = runRuleCheck(outDir, card, resumeText, ver, [file.name]);
+    const criticalRules = rule.issues.filter(i => i.severity === "critical");
+    let decision = null;
+    if (criticalRules.length) {
+      decision = { verdict: "REVISE", issues: criticalRules, source: "rule" };
+    } else if (qCfg.mode !== "off") {
+      // 2) LLM 判定项（仅 D3 JD 契合）：规则通过才调用；失败降级 PASS + warn，不阻断
+      onProgress({ type: "step", name: "reviewing", status: "running", detail: "审核 " + file.name });
+      let llm;
+      try {
+        llm = await reviewFiles([file.name], { outDir, jdText, card, resumeText, ver, signal, onLog: t => onProgress({ type: "log", text: t }) });
+      } catch (e) {
+        if (signal && signal.aborted) return { ok: false, cancelled: true, rounds, bytes: lastBytes };
+        llm = { verdict: "PASS", issues: [{ code: "LLM", severity: "warn", item: "LLM 审核失败（" + String(e && e.message || e).slice(0, 120) + "），已跳过该文件 LLM 判定" }] };
+      }
+      decision = { verdict: llm.verdict, issues: llm.issues, source: "llm" };
+    }
+    const needRework = qCfg.mode === "on" && decision && decision.verdict === "REVISE";
+    rounds.push({ file: file.name, round, verdict: decision ? decision.verdict : "PASS", source: decision ? decision.source : null, issues: decision ? decision.issues : [] });
+    onProgress({ type: "review", file: file.name, round, verdict: rounds[rounds.length - 1].verdict, source: rounds[rounds.length - 1].source, issues: rounds[rounds.length - 1].issues });
+    if (!needRework) {
+      if (round === 0) onProgress({ type: "log", text: "✓ " + file.name + " 首轮通过质量审核" });
+      else onProgress({ type: "log", text: "✓ " + file.name + " 第 " + round + " 轮回炉后通过质量审核" });
+      return { ok: true, rounds, bytes: lastBytes, verdict: decision ? decision.verdict : "PASS", remaining: 0 };
+    }
+    if (round < qCfg.maxRounds) {
+      feedback = buildFeedbackPrompt(file.name, decision.issues);
+      onProgress({ type: "step", name: "rework", status: "running", detail: file.name + " 第 " + (round + 1) + " 轮回炉重写" });
+      continue;
+    }
+    onProgress({ type: "log", text: "⚠ " + file.name + " 达到质量回炉上限（" + qCfg.maxRounds + " 轮），保留当前版本（遗留 " + decision.issues.length + " 项，建议人工复核）" });
+    return { ok: true, rounds, bytes: lastBytes, verdict: "REVISE", remaining: decision.issues.length, issues: decision.issues };
+  }
+  return { ok: true, rounds, bytes: lastBytes, verdict: "PASS", remaining: 0 };
+}
+
+// 质量回路配置解析：环境变量为基础，input.quality 覆盖（mode/maxRounds/reviewFiles）
+function resolveQualityCfg(input) {
+  const base = getQualityConfig(process.env);
+  return mergeQualityCfg(base, input && input.quality);
 }
 
 // ---------- 主入口 ----------
@@ -413,12 +483,25 @@ async function runGenerate(input, handlers = {}) {
   // files/comps 在任务开始重新加载（T1：prompt 改动立即生效，无需重启服务）
   const files = buildFiles();
   const comps = freshComponents();
+  // M3：白名单文件走 qualityLoopForFile（规则+LLM 双闸门、带意见回炉），其余文件保持单次生成
+  const qCfg = resolveQualityCfg(input);
+  const qualityResults = [];
   const results = await mapLimit(files, concurrencyLimit(), async (file) => {
     if (signal && signal.aborted) return { name: file.name, status: "failed", error: "任务已取消" };
+    const inReview = qCfg.enabled && qCfg.reviewFiles.indexOf(file.name) >= 0;
     onProgress({ type: "file", name: file.name, status: "running" });
     try {
-      const bytes = await generateOne(ctx, outDir, file, onProgress, signal);
-      onProgress({ type: "file", name: file.name, status: "done", bytes });
+      let bytes;
+      if (inReview) {
+        const qr = await qualityLoopForFile(ctx, outDir, file, onProgress, signal, qCfg,
+          { card, resumeText: input.resumeText, ver, jdText: jd });
+        if (qr.cancelled) return { name: file.name, status: "failed", error: "任务已取消" };
+        bytes = qr.bytes;
+        qualityResults.push(qr);
+      } else {
+        bytes = await generateOne(ctx, outDir, file, onProgress, signal);
+      }
+      onProgress({ type: "file", name: file.name, status: "done", bytes, quality: inReview ? { mode: qCfg.mode } : undefined });
       return { name: file.name, status: "done", bytes };
     } catch (e) {
       if (signal && signal.aborted) return { name: file.name, status: "failed", error: "任务已取消" };
@@ -505,8 +588,19 @@ async function runGenerate(input, handlers = {}) {
   if (!build || !build.ok) {
     onProgress({ type: "log", text: "⚠ HTML 渲染失败：结果页未生成，请在结果区对失败文件点「重试」（重试成功会自动重新构建 HTML）" });
   }
+  // M3：质量回路汇总（白名单文件的轮次/裁决/剩余问题），落盘 .quality.json 供 verify SOP-07 读取
+  const qualitySummary = qualityResults.map(r => ({
+    file: (r.file || (r.rounds && r.rounds[0] && r.rounds[0].file)) || "",
+    rounds: r.rounds.length, verdict: r.verdict,
+    remaining: r.remaining || 0, firstPass: r.rounds.length === 1 && r.verdict === "PASS",
+    issues: (r.issues || []).map(i => ({ severity: i.severity, rule: i.rule, text: i.text }))
+  }));
+  try {
+    fs.writeFileSync(path.join(outDir, ".quality.json"), JSON.stringify(qualitySummary, null, 2), "utf8");
+  } catch (e) { /* 写盘失败不阻断交付 */ }
   const doneEvt = { type: "done", ok: overallOk, build: build && build.ok, verify: verify && verify.ok,
     check: check && check.ok, checkOutput: check && check.output,
+    qualitySummary,
     needsVerify,
     // 结果文件完整保存路径（弹窗提示小白用户找文件用）
     resultPath: path.join(outDir, comp + "面试准备.html") };
@@ -543,4 +637,6 @@ async function retryFile(input, fileName, handlers = {}) {
   }
 }
 
-module.exports = { runGenerate, retryFile, FILES, runBuild, runVerify, runCheck, collectVerifyItems };
+module.exports = { runGenerate, retryFile, FILES, runBuild, runVerify, runCheck, collectVerifyItems,
+  qualityLoopForFile, resolveQualityCfg, runRuleCheck, buildFiles, buildSharedCtx,
+  readResumeCard, findPortrait, readInterviewNotes };

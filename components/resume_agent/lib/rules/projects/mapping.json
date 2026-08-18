@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "quantity_table": {
+    "one-page": {"0": 2, "1": 1, "2": 1},
+    "two-pages": {"0": 3, "1": 2, "2": 1}
+  },
+  "direction_projects": [
+    {
+      "direction": "AI Agent / LLM 应用",
+      "create": true,
+      "project_types": ["智能体系统", "RAG 知识库", "提示工程工具"],
+      "skeletons": ["智能客服 Agent", "多模态竞品分析 Agent", "企业知识库 RAG"]
+    },
+    {
+      "direction": "后端开发",
+      "create": true,
+      "project_types": ["业务系统", "中间件", "开放接口服务"],
+      "skeletons": ["高并发订单系统", "消息队列中间件", "开放平台 API"]
+    },
+    {
+      "direction": "算法 / 机器学习",
+      "create": true,
+      "project_types": ["模型训练与部署", "推荐系统", "CV/NLP"],
+      "skeletons": ["商品推荐系统", "图像分类推理服务", "文本分类微调"]
+    },
+    {
+      "direction": "数据分析",
+      "create": true,
+      "project_types": ["指标体系", "BI 看板", "数据挖掘"],
+      "skeletons": ["用户增长分析看板", "流失预测模型", "A/B 实验分析"]
+    },
+    {
+      "direction": "前端开发",
+      "create": true,
+      "project_types": ["可视化大屏", "组件库", "低代码平台"],
+      "skeletons": ["数据可视化大屏", "通用组件库", "低代码表单引擎"]
+    },
+    {
+      "direction": "非技术方向（产品/运营等）",
+      "create": false,
+      "project_types": [],
+      "skeletons": []
+    }
+  ],
+  "evaluation": [
+    "STAR 四要素齐备度",
+    "JD 关键技能词覆盖率",
+    "真实性自洽（技术栈/角色匹配，不虚构公司职级机构）",
+    "量化占比（每条 ≥1 个量化成果，数值合理、精度合规）",
+    "字数范围（一页版每条 2~4 行、两页版 3~6 行）"
+  ]
+}

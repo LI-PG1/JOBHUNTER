@@ -52,6 +52,14 @@
   .b-judge { background: rgba(227,179,65,.15); color: var(--judge); }
   .b-start { background: rgba(63,185,80,.15); color: var(--start); }
   .b-end { background: rgba(248,81,73,.15); color: var(--end); }
+  /* 审核结果卡片（N3 review_results 展示） */
+  .rv { display: flex; align-items: center; gap: 8px; padding: 4px 8px; margin: 3px 0; background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+  .rv-b { color: var(--dim); width: 88px; }
+  .rv-v { padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .rv-pass { background: rgba(63,185,80,.18); color: var(--start); }
+  .rv-warn { background: rgba(227,179,65,.18); color: var(--judge); }
+  .rv-blk { color: var(--end); font-weight: 700; }
+  .rv-rw { color: var(--hl); font-style: normal; }
   .insp-body { padding: 12px 16px; }
   .sec { margin-bottom: 14px; }
   .sec h4 { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
@@ -114,8 +122,8 @@ const NODES = {
     desc:"大脑 interrupt() 暂停，追问缺失的画像信息，补齐后回到 N1 重解析。",
     io:["交互：追问缺失字段"] },
   N3:    { x:580, y:60, w:170, type:"component", name:"N3 resume_agent", sub:"LangChain 组件",
-    desc:"JL 改造。单次单方向生成简历 → 版本注册表 line-vN；内部审核回路 + 联网检索方法论。",
-    io:["输入：direction / source_materials / jobs(1~5)", "输出：resume / version_id / ai_projects"] },
+    desc:"JL 改造。单次单方向生成简历 → 版本注册表 line-vN；内部审核回路（规则审核 → blocker 带意见重写 → 复审）+ 联网检索方法论；审核结果 review_results 随 state 透出。",
+    io:["输入：direction / source_materials / jobs(1~5)", "输出：resume / review_results（block → verdict / rounds / rewritten）"] },
   N4:    { x:800, y:60, w:170, type:"component", name:"N4 match_agent", sub:"LangChain 组件",
     desc:"JS 改造。搜索回路（decide→execute→evaluate→brake）+ judge 混合判定 → match_results + gap_summary。",
     io:["输入：profile / resume / target_jobs", "输出：match_results[] / gate 用字段 / gap_summary"] },
@@ -172,8 +180,38 @@ const EDGES = [
   { f:"N11", t:"END", label:"" },
 ];
 
+// ---------- mock review_results（与 resume_agent 组件输出结构一致，仅本地演示） ----------
+const MOCK_REVIEW = [
+  { block: "summary",     verdict: "pass",              rounds: 0, rewritten: false, blockerCount: 0, issues: [] },
+  { block: "internship",  verdict: "pass",              rounds: 0, rewritten: false, blockerCount: 0, issues: [] },
+  { block: "projects",    verdict: "accept_with_issues", rounds: 1, rewritten: true, blockerCount: 2,
+    issues: ["star_chain：要点条数 3 不足 STAR 四段（S/T/A/R 各需 1 条）",
+             "density_min：单条等效字 20 低于下限 35"] },
+  { block: "skill_extend", verdict: "pass",             rounds: 0, rewritten: false, blockerCount: 0, issues: [] },
+];
+function reviewHtml() {
+  return MOCK_REVIEW.map(r => {
+    const cls = r.verdict === "pass" ? "rv-pass" : "rv-warn";
+    const blk = r.blockerCount ? ` <b class="rv-blk">${r.blockerCount} 个 blocker</b>` : "";
+    const rw = r.rewritten ? ` <em class="rv-rw">已带意见重写 ${r.rounds} 轮</em>` : "";
+    return `<div class="rv"><span class="rv-b">${r.block}</span><span class="rv-v ${cls}">${r.verdict}</span>${blk}${rw}</div>`;
+  }).join("");
+}
+
 // ---------- Inspector 内容（焦点节点丰富详情） ----------
 const DETAIL = {
+  N3: {
+    name:"N3 resume_agent", badge:"b-component", badgeText:"resume_agent · LangChain",
+    desc:"JL 改造（组件化 · P3 review 子图）：<span class='hl'>prepare → generate → review → build</span> 四阶段链，进程内被大脑 N3/N8 调用；review_results 写入编排器 state，供 N7 差距分析 / N11 报告消费。",
+    items:[
+      ["生成", "prepare(factsheet) → generate（summary/internship/projects/skill_extend 并行）→ review → build（模板装配）"],
+      ["规则审核", "零 LLM：STAR 逻辑链（S/T/A/R 各需 1 条）/ 时间约束 / 密度均衡（单条下限+组内 75%）/ 数字口径 / 禁用词"],
+      ["重写回路", "有 blocker → 携带 review_feedback 带意见重写 → 复审；未改善自动回退最优版本（≤max_rewrite_rounds）"],
+      ["豁免", "edited=true 锁定条目跳过；degraded/skipped 板块不重写；config.review.enabled=false 整阶段跳过"],
+      ["审核结果（mock 数据）", reviewHtml()],
+    ],
+    io:{ in:"direction / source_materials / jobs(1~5)", out:"resume / review_results（block → verdict / rounds / rewritten / blockerCount）" },
+  },
   N5: {
     name:"N5 匹配质量判定", badge:"b-judge", badgeText:"规则判定 · 无 LLM",
     desc:"判定整批匹配结果『质量是否达标』。全规则确定性执行——LLM 不参与 pass/fail（延续『循环内可执行审核』），只做 N7 分析。",

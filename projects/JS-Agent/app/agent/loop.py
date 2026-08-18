@@ -6,7 +6,6 @@
 """
 from __future__ import annotations
 
-import datetime
 import json
 import threading
 import time
@@ -14,20 +13,23 @@ from typing import Any, Callable
 from urllib.parse import urlparse
 
 from ..config import config
-from ..core.enterprise import classifier
 from ..core.errors import AgentAbortedError, JSAgentError
-from ..core.gates import collection_gate, output_gate, profile_gate
+from ..core.gates import output_gate, profile_gate
 from ..core.llm import llm
 from ..plugins import scrub
 from ..plugins.fetch import fetch_plugin
-from ..plugins.search import search_plugin
 from ..plugins.writer import save as save_result
+from ..services.judge import judge_service
 from .planner import build_queries
 from .prompts import LIST_SYSTEM, PROFILE_SYSTEM, REVIEW_SYSTEM
+from .search_loop import run as search_loop_run
 
 # ---------- 进度 ----------
 
 STEP_WEIGHTS = {"profile": 5, "plan": 5, "search": 55, "scrub": 5, "judge": 5, "expand": 5, "list": 10, "review": 5, "save": 5}
+
+# 企业类型全集（与 schema.py PROFILE_CARD_SCHEMA.company_types / 前端 chips 对齐）
+ALL_COMPANY_TYPES = ["央企", "国企", "大型", "中型", "小型"]
 
 _PROFILE_BASE = 0
 _PLAN_BASE = STEP_WEIGHTS["profile"]
@@ -170,10 +172,20 @@ def _structure_batch(items: list[dict[str, str]], provider_id: str | None, model
 
 
 def _collect_mode(judged: list[dict[str, Any]], mode: str) -> list[dict[str, Any]]:
-    """按模式筛收录：match 用 Gate2 状态（accepted/gap，80% 门槛）；scout 洗涤有效（is_job）即收录，匹配分作参考。"""
+    """按模式筛收录：match 用状态（accepted/gap，80% 门槛）；scout 洗涤有效（is_job）即收录，匹配分作参考。
+
+    两种模式都尊重硬过滤（status=excluded：企业类型不符 / 超时效 / 地域不符等）
+    与最终分底线（final_score < match_gap 不入清单，混合判定后两模式统一）。
+    """
+    gap = float(config.constraints["match_gap"])
+
+    def _passes(e: dict[str, Any]) -> bool:
+        return (e.get("final_score") if e.get("final_score") is not None
+                else e.get("match_score") or 0) >= gap
+
     if mode == "match":
-        return [e for e in judged if e.get("status") in ("accepted", "gap")]
-    return [e for e in judged if e.get("is_job", True)]
+        return [e for e in judged if e.get("status") in ("accepted", "gap") and _passes(e)]
+    return [e for e in judged if e.get("is_job", True) and e.get("status") != "excluded" and _passes(e)]
 
 
 # ---------- 匹配执行器 ----------
@@ -191,7 +203,7 @@ class MatchRunner:
         model = request.get("model")
         # 搜索器模式（默认）：岗位洗涤有效（is_job）即收录，匹配分作参考排序；match 模式保留原 80% 收录门槛
         mode = request.get("mode") or "scout"
-        selected_types = request.get("company_types") or ["央企", "国企", "大型", "中型", "小型"]
+        frontend_types = request.get("company_types") or []
         max_results = int(request.get("max_results") or 20)
         constraints = config.constraints
 
@@ -200,6 +212,12 @@ class MatchRunner:
         card = self._parse_profile(request.get("profile_text", ""), provider_id, model, is_aborted)
         implicit = profile_gate.implicit_skills(card, request.get("profile_text", ""))
         profile_skills = [s["name"] for s in card.get("skills", [])]
+        # 企业类型过滤集合 = 前端多选 ∪ 画像推断（去重保序），两端任一为空的意图都尊重：
+        # 前端勾选是硬约束，画像文本声明（如"想进国企"）作补充，避免画像声明被忽略
+        selected_types = list(dict.fromkeys([*frontend_types, *card.get("company_types", [])]))
+        # 归一化：覆盖全部 5 类 = 全选 = 不限（前端默认全勾，此时不应误伤「未知」类型岗位）
+        if selected_types and set(selected_types) >= set(ALL_COMPANY_TYPES):
+            selected_types = []
         p.section("search", STEP_WEIGHTS["profile"] + STEP_WEIGHTS["plan"], STEP_WEIGHTS["search"]).step(0.0, "画像解析完成")
 
         # ② 搜索规划
@@ -207,142 +225,70 @@ class MatchRunner:
         queries = build_queries(card, provider_id, model)
         p.section("search", STEP_WEIGHTS["profile"] + STEP_WEIGHTS["plan"], STEP_WEIGHTS["search"]).step(0.05, f"搜索方案就绪（{len(queries)} 条）")
 
-        # ③ 搜索执行（每轮 2 条，收敛控制）
-        entries: list[dict[str, Any]] = []
-        used_backends: set[str] = set()
-        rounds = 0
-        max_rounds = constraints["max_search_rounds"]
-        no_new_rounds = 0
-        executed: set[str] = set()
+        # ③ 搜索执行（搜索回路：LLM 决策行动 + 代码刹车，改造设计 §3）
+        # search_agent=false → 停用决策器，退化为按 plan_queries 顺序执行（≈ 改造前 while 循环）
+        sa_enabled = config.search_agent.get("enabled", True)
+        if "search_agent" in request and request["search_agent"] is not None:
+            sa_enabled = bool(request["search_agent"])
+        sl = search_loop_run(card, queries, _structure_batch, {
+            "max_results": max_results,
+            "provider_id": provider_id,
+            "model": model,
+            "is_aborted": is_aborted,
+            "enabled": sa_enabled,
+            "progress": lambda frac, msg: p.section(
+                "search", STEP_WEIGHTS["profile"] + STEP_WEIGHTS["plan"], STEP_WEIGHTS["search"]
+            ).step(frac, msg),
+        })
+        entries = sl["entries"]
+        rounds = sl["rounds"]
+        used_backends = set(sl["backends"])
+        search_trace = {
+            "history": sl["history"], "converge_reason": sl["converge_reason"],
+            "llm_calls": sl["llm_calls"], "rounds": sl["rounds"],
+        }
 
-        while rounds < max_rounds:
-            if is_aborted():
-                raise AgentAbortedError("任务已取消")
-            pending = [q for q in queries if q["q"] not in executed]
-            if not pending:
-                break
-            rounds += 1
-            before = len(entries)
-            # 每轮执行最多 2 条 query
-            for q in pending[:2]:
-                if is_aborted():
-                    raise AgentAbortedError("任务已取消")
-                executed.add(q["q"])
-                p.section("search", STEP_WEIGHTS["profile"] + STEP_WEIGHTS["plan"], STEP_WEIGHTS["search"]).step(
-                    0.1 + 0.25 * (rounds - 1) / max(max_rounds - 1, 1), f"第 {rounds} 轮搜索：{q['q']}"
-                )
-                resp = search_plugin.search(q["q"], num=8)
-                results = resp.get("results", [])
-                # 全部后端失败（含冷却限流）→ 短暂等待后重试，最多 2 次
-                retry = 0
-                while not results and retry < 2 and resp.get("error"):
-                    retry += 1
-                    time.sleep(6)
-                    resp = search_plugin.search(q["q"], num=8)
-                    results = resp.get("results", [])
-                used_backends.add(resp.get("backend", ""))
-                raw_items = [{"title": r.get("title", ""), "url": r.get("url", ""),
-                              "snippet": r.get("snippet", ""), "date": r.get("date", "")} for r in results]
-                structured = _structure_batch(raw_items, provider_id, model)
-                for i, r in enumerate(results):
-                    e = structured[i] if i < len(structured) else {}
-                    snippet = r.get("snippet", "")
-                    entry = {
-                        "source_url": scrub.clean_url(r.get("url", "")),
-                        "title": e.get("title") or r.get("title", ""),
-                        "company": e.get("company", ""),
-                        "city": e.get("city", ""),
-                        "salary": e.get("salary", ""),
-                        "jd_text": e.get("jd_text") or snippet,
-                        "updated_at": e.get("updated_at") or r.get("date", ""),
-                        "skill_line": e.get("skill_line", ""),
-                        "industry": e.get("industry", ""),
-                        "degree": e.get("degree", ""),
-                        "experience": e.get("experience", ""),
-                        "is_job": e.get("is_job", True),
-                        "enterprise_type": classifier.classify(e.get("company", ""), extra_text=(e.get("jd_text") or snippet)[:200]),
-                        "_query": q["q"],
-                    }
-                    # 过滤相对/非法链接（如猎聘 /goto 跳转），避免 Gate3 source_url 校验误删整批
-                    if entry["source_url"] and entry["source_url"].startswith("http"):
-                        entries.append(entry)
-            # 收敛：连续 2 轮无新增 → 停
-            if len(entries) - before < 2:
-                no_new_rounds += 1
-                if no_new_rounds >= 2 and rounds >= constraints["min_search_rounds"]:
-                    break
-            else:
-                no_new_rounds = 0
-            if rounds >= constraints["min_search_rounds"] and len([e for e in entries if e.get("source_url")]) >= max_results * 2:
-                break
-
-        # ④ 洗涤
+        # ④ 洗涤（search_loop 已 normalize+dedupe，此处仅统计）
         p.section("scrub", _SCRUB_BASE, STEP_WEIGHTS["scrub"]).step(0.5, "数据洗涤（去重/去噪）...")
-        entries = scrub.dedupe(scrub.normalize(entries))
         searched = len(entries)
 
-        # ⑤ 判断：Gate2 收录（两阶段：浅判 snippet → 深判抓取正文补全 JD）
+        # ⑤ 判断：混合判定（硬约束 → 规则技能分 → LLM 软性 → 合并仲裁，改造设计 §2）
         p.section("judge", _JUDGE_BASE, STEP_WEIGHTS["judge"]).step(0.2, "匹配度评估与筛选...")
         judged: list[dict[str, Any]] = []
         for e in entries:
             e = dict(e)
             e["jd_text"] = e.get("jd_text") or e.get("snippet") or e.get("title", "")
-            judged.append(collection_gate.judge(e, profile_skills, implicit, selected_types))
+            judged.append(e)
+        judge_llm = config.judge.get("llm_enabled", True)
+        if "judge_llm" in request and request["judge_llm"] is not None:
+            judge_llm = bool(request["judge_llm"])
+        judge_service.judge_batch(judged, card, profile_skills, implicit, selected_types,
+                                  provider_id, model, llm_enabled=judge_llm)
         candidates = _collect_mode(judged, mode)
         washed = len(candidates)
 
-        # 深判：对候选岗位抓取正文精化 JD（仅 match 模式补匹配度；scout 收录不依赖匹配分，跳过以提速）
-        if mode == "match":
-            for e in candidates:
-                if is_aborted():
-                    raise AgentAbortedError("任务已取消")
-                url = e.get("source_url", "")
-                if not url or _is_grey(url):
-                    continue
-                page = fetch_plugin.fetch(url)
-                text = (page.get("text") or "").strip()
-                if len(text) > 100:
-                    e["jd_text"] = text[:1500]
-                    collection_gate.judge(e, profile_skills, implicit, selected_types)
-        accepted = _collect_mode(judged, mode)
+        # 深判：抓取正文精化 JD，重跑混合判定（两模式统一，改造设计 §2.6）
+        changed: list[dict[str, Any]] = []
+        for e in candidates:
+            if is_aborted():
+                raise AgentAbortedError("任务已取消")
+            url = e.get("source_url", "")
+            if not url or _is_grey(url):
+                continue
+            page = fetch_plugin.fetch(url)
+            text = (page.get("text") or "").strip()
+            if len(text) > 100:
+                e["jd_text"] = text[:1500]
+                changed.append(e)
+        if changed:
+            judge_service.judge_batch(changed, card, profile_skills, implicit, selected_types,
+                                      provider_id, model, llm_enabled=judge_llm)
+        accepted = _collect_mode(candidates, mode)
 
-        # ⑥ 扩散：存在 ≥90 分岗位 → 追加同类搜索
-        expand_th = constraints["match_expand"]
-        if any(e.get("match_score", 0) >= expand_th for e in accepted) and rounds < max_rounds:
-            p.section("expand", _EXPAND_BASE, STEP_WEIGHTS["expand"]).step(0.5, "发现高匹配岗位，自动扩散搜索同类岗位...")
-            top_job = max(accepted, key=lambda e: e.get("match_score", 0))
-            expand_q = f"{top_job.get('city') or request.get('city','')} {top_job.get('title','')} {top_job.get('company','')} 招聘 2027"
-            resp = search_plugin.search(expand_q, num=8)
-            used_backends.add(resp.get("backend", ""))
-            results = resp.get("results", [])
-            raw_items = [{"title": r.get("title", ""), "url": r.get("url", ""),
-                          "snippet": r.get("snippet", ""), "date": r.get("date", "")} for r in results]
-            structured = _structure_batch(raw_items, provider_id, model)
-            for i, r in enumerate(results):
-                if is_aborted():
-                    raise AgentAbortedError("任务已取消")
-                e = structured[i] if i < len(structured) else {}
-                snippet = r.get("snippet", "")
-                entry = {
-                    "source_url": scrub.clean_url(r.get("url", "")),
-                    "title": e.get("title") or r.get("title", ""), "company": e.get("company", ""),
-                    "city": e.get("city", ""), "salary": e.get("salary", ""),
-                    "jd_text": e.get("jd_text") or snippet,
-                    "updated_at": e.get("updated_at") or r.get("date", ""),
-                    "skill_line": e.get("skill_line", ""),
-                    "industry": e.get("industry", ""),
-                    "degree": e.get("degree", ""),
-                    "experience": e.get("experience", ""),
-                    "is_job": e.get("is_job", True),
-                    "enterprise_type": classifier.classify(e.get("company", ""), extra_text=(e.get("jd_text") or snippet)[:200]),
-                    "_query": expand_q,
-                }
-                if entry["source_url"]:
-                    judged.append(collection_gate.judge(entry, profile_skills, implicit, selected_types))
-            accepted = _collect_mode(judged, mode)
+        # ⑥ 扩散：由 search_loop 的 deep_dive/expand 行动覆盖（改造设计 §3.2），此处不再追加搜索
 
-        # ⑦ 排序（规则分降序 + 更新新者优先）
-        accepted.sort(key=lambda e: (-(e.get("match_score") or 0), (e.get("updated_at") or "")))
+        # ⑦ 排序（最终分降序 + 更新新者优先）
+        accepted.sort(key=lambda e: (-(e.get("final_score") or e.get("match_score") or 0), (e.get("updated_at") or "")))
         final_entries = accepted[:max_results]
 
         # ⑧ 生成清单（LLM）+ Gate3 质检 + 修正循环
@@ -360,9 +306,11 @@ class MatchRunner:
         result["rounds_used"] = rounds
         result["backends"] = sorted(u for u in used_backends if u)
         result["files"] = {"md": str(md_path), "html": str(html_path)}
+        result["_trace"] = search_trace
         # 调试统计：定位「搜索到但收录 0」的环节（洗涤前/洗涤后/清单生成）
         result["_debug"] = {"mode": mode, "searched": searched, "washed": washed,
-                            "judged": len(judged), "accepted": len(accepted)}
+                            "judged": len(judged), "accepted": len(accepted),
+                            "search_llm_calls": search_trace["llm_calls"]}
         print(f"[scout] mode={mode} searched={searched} washed={washed} judged={len(judged)} accepted={len(accepted)} jobs={len(result.get('jobs') or [])}")
         return result
 
@@ -390,19 +338,23 @@ class MatchRunner:
     ) -> dict[str, Any]:
         candidates = []
         for e in entries:
+            lv = e.get("llm_verdict") or {}
             candidates.append({
                 "title": e.get("title", ""), "company": e.get("company", ""),
                 "city": e.get("city") or card.get("city", ""), "salary": e.get("salary", ""),
                 "match_score": e.get("match_score", 0), "missing_skills": e.get("missing_skills", []),
                 "source_url": e.get("source_url", ""), "updated_at": e.get("updated_at", ""),
                 "rule_score": e.get("match_score", 0),
+                "final_score": e.get("final_score") if e.get("final_score") is not None else e.get("match_score", 0),
+                "llm_verdict": lv,
+                "resume_tips": lv.get("resume_tips", []),
                 "jd_text": (e.get("jd_text") or "")[:200],
                 "skill_line": e.get("skill_line", ""), "industry": e.get("industry", ""),
                 "degree": e.get("degree", ""), "experience": e.get("experience", ""),
             })
         user = (
             f"画像卡：\n{json.dumps({'city': card.get('city'), 'education': card.get('education'), 'skills': [s['name'] for s in card.get('skills', [])]}, ensure_ascii=False)}\n\n"
-            f"候选岗位数据（含规则分 rule_score，不得改写 match_score）：\n{json.dumps(candidates, ensure_ascii=False)}"
+            f"候选岗位数据（含最终分 final_score，match_score 必须沿用 final_score，不得改写）：\n{json.dumps(candidates, ensure_ascii=False)}"
         )
         obj, _ = llm.chat_json(LIST_SYSTEM, user, provider_id, model, max_tokens=8000)
 
@@ -412,12 +364,14 @@ class MatchRunner:
                 raise AgentAbortedError("任务已取消")
             errors: list[str] = []
             jobs = obj.get("jobs", [])
-            rule_by_key: dict[str, float] = {f"{c.get('title')}|{c.get('company')}": c.get("rule_score") for c in candidates}
+            rule_by_key: dict[str, dict[str, float]] = {
+                f"{c.get('title')}|{c.get('company')}": {"rule": c.get("rule_score"), "final": c.get("final_score")}
+                for c in candidates}
             for j in jobs:
                 errors += output_gate.validate_job(j)
                 rule = rule_by_key.get(f"{j.get('title')}|{j.get('company')}")
                 if rule is not None:
-                    errors += output_gate.cross_check(j, rule)
+                    errors += output_gate.cross_check(j, rule["rule"], rule["final"])
             if not errors:
                 return obj
             if attempt >= qa_retry:
@@ -427,7 +381,7 @@ class MatchRunner:
             feedback = "\n".join(f"- {e}" for e in errors[:20])
             user_fix = (
                 f"上一版清单质检反馈：\n{feedback}\n\n"
-                f"请修正后重新输出完整清单 JSON（格式不变；不删除未报错岗位；match_score 沿用输入 rule_score；source_url 必须来自输入）。"
+                f"请修正后重新输出完整清单 JSON（格式不变；不删除未报错岗位；match_score 沿用输入 final_score；source_url 必须来自输入）。"
             )
             prev_jobs = jobs  # 上一版 jobs 保底：REVIEW 输出残缺时回退
             obj, _ = llm.chat_json(REVIEW_SYSTEM, user_fix, provider_id, model, max_tokens=8000)

@@ -6,7 +6,7 @@
 P3 落地：JD 分析、技能相关性评分。P4 扩展各生成板块。
 """
 import json
-from typing import List
+from typing import List, Optional
 
 SYSTEM_PERSONA = (
     "你是一名资深 HR 与求职导师，精通中文简历撰写与 ATS（申请追踪系统）解析规则。"
@@ -75,7 +75,7 @@ def theme_check_messages(jd_tags: List[str], resume_tags: List[str], threshold: 
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def skill_extend_messages(skills: List[dict], jobs: List[dict]) -> List[dict]:
+def skill_extend_messages(skills: List[dict], jobs: List[dict], review_feedback: Optional[str] = None) -> List[dict]:
     """技能拓展（§4.2 /api/skills/extend）：基于 JD 推荐补充技能（有机分类）。"""
     system = SYSTEM_PERSONA + (
         "\n\n你是技能规划导师：基于目标岗位 JD 与用户现有技能，推荐 3~6 个补充技能，"
@@ -93,6 +93,8 @@ def skill_extend_messages(skills: List[dict], jobs: List[dict]) -> List[dict]:
 {"\n---\n".join(f"岗位：{j.get('title','')}\nJD：{j.get('jdText','')}" for j in jobs)}
 
 仅输出 JSON。"""
+    if review_feedback:
+        user += f"\n\n{review_feedback}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
@@ -107,7 +109,8 @@ def _estimated_protocol() -> str:
     )
 
 
-def summary_messages(user_brief: dict, rules: dict, factsheet: dict) -> List[dict]:
+def summary_messages(user_brief: dict, rules: dict, factsheet: dict,
+                     review_feedback: Optional[str] = None) -> List[dict]:
     """自我评价生成（第一层）：最多 2 句，简洁不重复基本信息，有机呼应目标岗位能力需要。"""
     core = factsheet.get("coreSkills") or []
     focus = factsheet.get("jdFocus") or ""
@@ -137,10 +140,12 @@ def summary_messages(user_brief: dict, rules: dict, factsheet: dict) -> List[dic
 {{"sentences": [{{"text": "自我评价句子（40~80 字）", "estimatedLines": 1}}]}}
 
 仅输出 JSON。"""
+    if review_feedback:
+        user += f"\n\n{review_feedback}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def internship_messages(internships: List[dict], rules: dict) -> List[dict]:
+def internship_messages(internships: List[dict], rules: dict, review_feedback: Optional[str] = None) -> List[dict]:
     """实习美化（第一层，有则做）：仅优化措辞、补合理量化，不创造经历。
 
     输出对齐高密度简历范式：overview=主要职责概述（1 句）；duties=主要工作内容
@@ -178,6 +183,8 @@ def internship_messages(internships: List[dict], rules: dict) -> List[dict]:
   "duties": [{{"text": "主题：内容描述（技术栈 + 量化成果）", "estimatedLines": 1}}]}}]}}
 
 仅输出 JSON；保留全部公司/职位/时间原值。"""
+    if review_feedback:
+        user += f"\n\n{review_feedback}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
@@ -189,28 +196,29 @@ def projects_messages(
     count: int,
     limit: int,
     search_results: List[dict],
+    review_feedback: Optional[str] = None,
 ) -> List[dict]:
     """项目生成（第二层，依赖共享事实表）：已有项目润色补齐，空位按骨架创造。
 
-    items 覆盖 STAR 段：limit=6（两页 2 项目）为背景/任务/行动×3/结果；
-    limit=4（STAR 四段：背景/任务/行动×1~2/结果）；limit=3（一页多项目：背景与任务/行动/结果）。
+    items 必须完整覆盖 STAR 四段（方案 A 定稿，2026-08-17）：
+    limit=6（两页 ≤2 项目）为 S/T/A×3/R；limit=4（一页 / 两页 ≥3 项目）为 S/T/A/R；
+    前 4 条语义固定 ①S 背景基线 ②T 量化目标 ③A 行动方案 ④R 量化结果，缺一不可。
     """
     seg = {
-        6: "两页版恰好 6 条（背景 1 + 任务 1 + 行动 3 + 结果 1）",
-        4: "恰好 4 条（背景 1 + 任务 1 + 行动 1~2 + 结果 1）",
-        3: "恰好 3 条（背景与任务 1 + 行动与方案 1 + 结果与复盘 1）",
-    }.get(limit, f"恰好 {limit} 条")
+        6: "两页版恰好 6 条：前 4 条固定 背景(S)/目标(T)/行动(A)/结果(R) + 行动扩展 2 条",
+        4: "恰好 4 条：固定 背景(S)/目标(T)/行动(A)/结果(R) 各 1 条",
+    }.get(limit, f"恰好 {limit} 条（前 4 条固定 S/T/A/R）")
     system = SYSTEM_PERSONA + (
         "\n\n你是项目经历撰写师：面向目标岗位定向产出 {count} 条 STAR 结构项目。"
         "**用户已有项目（source=polished）：名称/角色/时间/技术栈/项目方向一律保留，仅做 STAR 四段结构化扩充**"
         "（补背景与量化基线、任务与量化目标、行动技术细节、结果与复盘），"
         "不得把用户项目改写成其他方向，不得编造用户未提供的项目类型；"
         "空位 → 基于给定骨架创作可验证的课程/竞赛/自研项目（source=ai-created），不虚构公司职级。"
-        "每个项目的要点（items）必须完整覆盖 STAR 结构："
+        "每个项目的要点（items）必须完整覆盖 STAR 结构，前 4 条语义固定且顺序固定（缺段/调序即不合格）："
         "①背景与问题（S）：业务/场景痛点 + 量化基线；②任务与目标（T）：你负责的范围 + 明确的量化目标；"
         "③行动与方案（A）：写清技术框架/库/关键参数、工程决策与实现方式；"
         "④结果与复盘（R）：量化成果 + 一句复盘洞察（为什么有效/可复用的经验）。"
-        "要点数量为硬约束：{seg}，不得少于该数量。"
+        "要点数量为硬约束：{seg}，不得少于 4 条。"
         "每条要点是一句完整叙事（信息密度高，无需逐字计数），含量化指标与工程细节，避免空泛形容词。"
         "每条 2~3 行。输出严格 JSON。"
     ).format(count=count, seg=seg)
@@ -255,4 +263,6 @@ def projects_messages(
   "items": [{{"text": "STAR 四段要点（含量化指标）", "estimatedLines": 1}}]}}]}}
 
 仅输出 JSON。"""
+    if review_feedback:
+        user += f"\n\n{review_feedback}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]

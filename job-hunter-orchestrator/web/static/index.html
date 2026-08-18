@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobHunter · 求职助手</title>
+  <link rel="stylesheet" href="/static/css/style.css?v={{CSS_V}}">
+</head>
+<body>
+
+<!-- ================= 着陆页：选择进入哪个板块 ================= -->
+<div id="landing" class="landing">
+  <div class="landing-inner">
+    <div class="landing-brand">
+      <span class="brand-dot"></span>
+      <b class="landing-name">JobHunter</b>
+      <p class="landing-sub">求职助手 · 选择要进入的板块</p>
+    </div>
+    <div class="landing-grid" id="landingGrid"></div>
+    <button class="btn btn-ghost" id="btnLandingConsole" type="button">⚙ 控制台</button>
+  </div>
+</div>
+
+<!-- ================= 顶部常驻栏：板块导航 + 控制台 ================= -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand" id="brandHome" title="返回首页">
+      <span class="brand-dot"></span>
+      <span class="brand-name">JobHunter</span>
+      <span class="brand-sub">求职助手</span>
+    </div>
+    <nav class="board-nav" id="boardNav">
+      <button class="bnav active" data-board="resume">📄 简历生成</button>
+      <button class="bnav" data-board="match">🎯 岗位匹配</button>
+      <button class="bnav" data-board="interview">🎤 面试准备</button>
+      <button class="bnav" data-board="tracker">📋 面试跟踪</button>
+    </nav>
+    <div class="topbar-right">
+      <button id="btnTheme" class="theme-btn" type="button" title="切换深浅主题">🌙</button>
+      <button id="btnConsole" class="btn btn-primary btn-sm" type="button">⚙ 控制台</button>
+    </div>
+  </div>
+</header>
+
+<!-- ================= 控制台 modal ================= -->
+<div id="consoleMask" class="modal-mask hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">⚙ 控制台</span>
+      <button id="btnCloseConsole" class="btn btn-sm btn-ghost" type="button">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="d-section">
+        <h4>API Key 管理</h4>
+        <p class="d-tip">可配置多个 Key，同一时间仅启用一个；启用的 Key 会写入 .env 供各板块的 AI 生成使用。</p>
+        <div id="keyList" class="key-list"></div>
+        <div class="key-add">
+          <h5>＋ 新增 Key</h5>
+          <div class="grid3">
+            <div class="field">
+              <label class="field-label">AI 厂商</label>
+              <select id="providerSelect" class="input">
+                <option value="openai">OpenAI</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="qwen">通义千问</option>
+                <option value="zhipu">智谱 GLM</option>
+                <option value="kimi">Kimi · 月之暗面</option>
+                <option value="claude">Anthropic</option>
+                <option value="ollama">Ollama 本地</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label">模型</label>
+              <select id="modelSelect" class="input"></select>
+            </div>
+            <div class="field">
+              <label class="field-label">API Key</label>
+              <input id="apiKeyInput" class="input" type="password" placeholder="sk-..." autocomplete="off">
+            </div>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-primary" id="btnSaveKey">保存 Key</button>
+            <span id="keyMsg" class="hint-ok"></span>
+          </div>
+        </div>
+      </div>
+      <div class="d-section">
+        <h4>CLI / MCP 工具</h4>
+        <p class="d-tip">插件 = 各种 CLI / MCP 工具，相当于给 Agent 配上手。预置工具可一键配置依赖，不再需要时可一键卸载。</p>
+        <div id="toolList" class="tool-list"></div>
+        <div class="tool-add" id="toolAddBox">
+          <div class="grid4">
+            <input id="toolName" class="input" placeholder="工具名，如：简历查重">
+            <select id="toolType" class="input">
+              <option value="cli">CLI 命令</option>
+              <option value="mcp">MCP server</option>
+            </select>
+            <input id="toolCommand" class="input" placeholder="命令，如：python check_dup.py {input}" style="grid-column: span 2">
+            <input id="toolDesc" class="input" placeholder="描述，可选" style="grid-column: span 4">
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-primary btn-sm" id="btnAddTool">＋ 新增工具</button>
+            <button class="btn btn-sm btn-ghost hidden" id="btnCancelEditTool">取消编辑</button>
+            <span class="hint-ok" id="toolMsg"></span>
+          </div>
+        </div>
+      </div>
+      <div class="d-section">
+        <h4>生成文件版本</h4>
+        <p class="d-tip">各板块生成产物的版本集中管理：简历、面试材料、复盘、岗位清单，可选用或删除。</p>
+        <div id="artifactList" class="artifact-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 主布局：左栏流程 + 内容 ================= -->
+<div class="layout">
+  <!-- 左栏：常驻流程栏（随板块变化）+ 简历管理 -->
+  <aside class="rail">
+    <div class="rail-title">使用流程</div>
+    <ol class="progress-steps" id="railSteps"></ol>
+    <div class="rail-note" id="railNote"></div>
+    <div class="rail-resume" id="railResume"></div>
+  </aside>
+
+  <main class="wrap">
+
+    <!-- ============ 板块 A：简历生成 ============ -->
+    <section class="board" id="board-resume">
+      <div class="card" data-step="1">
+        <div class="card-head">
+          <h2>填写画像</h2>
+          <span class="muted small">写得越详细，简历和岗位匹配越准</span>
+        </div>
+
+        <details class="fs-fold" open>
+          <summary>基本信息 <span class="tag required">必填</span></summary>
+          <div class="grid">
+            <label>姓名<input id="inpName" maxlength="32" placeholder="张三"></label>
+            <label>求职方向<input id="inpDirection" placeholder="如 算法工程师 / 后端开发"></label>
+            <label>邮箱<input id="inpEmail" type="email" placeholder="name@example.com"></label>
+            <label>电话<input id="inpPhone" type="tel" placeholder="如 13800000000"></label>
+          </div>
+        </details>
+
+        <details class="fs-fold">
+          <summary>其他信息 <span class="tag optional">选填</span></summary>
+          <div class="grid">
+            <label>期望城市<input id="inpCity" placeholder="如 深圳 / 上海"></label>
+            <label>个人主页<input id="inpWebsite" placeholder="如 https://github.com/xxx"></label>
+          </div>
+        </details>
+
+        <details class="fs-fold">
+          <summary>奖项荣誉 <span class="tag optional">选填</span></summary>
+          <textarea id="inpAwards" class="input" rows="2" placeholder="每行一条，如：2024 国家奖学金（国家级）"></textarea>
+        </details>
+
+        <details class="fs-fold" open>
+          <summary>教育经历 <span class="tag required">必填</span></summary>
+          <div id="eduRows"></div>
+          <button class="btn small" type="button" data-add="edu">+ 添加教育</button>
+        </details>
+
+        <details class="fs-fold">
+          <summary>项目经历 <span class="tag optional">推荐详细</span></summary>
+          <div id="projRows"></div>
+          <button class="btn small" type="button" data-add="proj">+ 添加项目</button>
+        </details>
+
+        <details class="fs-fold">
+          <summary>实习/工作经历 <span class="tag optional">推荐详细</span></summary>
+          <div id="intRows"></div>
+          <button class="btn small" type="button" data-add="int">+ 添加经历</button>
+        </details>
+
+        <details class="fs-fold" open>
+          <summary>技能特长 <span class="tag required">必填</span></summary>
+          <textarea id="inpSkills" class="input" rows="2" placeholder="用逗号分隔，如：Python, PyTorch, 深度学习, vLLM, FastAPI"></textarea>
+        </details>
+
+        <details class="fs-fold">
+          <summary>目标岗位 JD <span class="tag optional">可选</span></summary>
+          <div id="jobRows"></div>
+          <button class="btn small" type="button" data-add="job">+ 添加岗位</button>
+        </details>
+      </div>
+
+      <div class="card" data-step="2">
+        <div class="card-head">
+          <h2>生成并预览</h2>
+          <span id="genStatus" class="muted small"></span>
+        </div>
+        <div class="resume-opts">
+          <label>简历页数
+            <select id="inpResumePages" class="input">
+              <option value="2">2 页（完整版，推荐）</option>
+              <option value="1">1 页（精简版）</option>
+            </select>
+          </label>
+          <label>证件照
+            <span>
+              <input type="file" id="inpPhoto" class="input-file" accept="image/png,image/jpeg">
+              <a class="photo-clear hidden" id="btnPhotoClear">× 清除</a>
+            </span>
+            <span class="muted small" id="photoHint">选填，将显示在简历右上角（约 2.3cm × 3cm）</span>
+          </label>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-primary btn-lg" id="btnGenResume">🚀 生成我的简历</button>
+          <button class="btn btn-lg hidden" id="btnExportPdf">⬇ 导出 PDF</button>
+        </div>
+      </div>
+
+      <div class="card" data-step="3">
+        <div class="card-head">
+          <h2>简历预览</h2>
+          <span class="muted small">简历版本管理已移至左侧「简历管理」</span>
+        </div>
+        <div id="resumeWrap" class="sheet-wrap hidden">
+          <div id="resumeSheet" class="sheet"></div>
+        </div>
+        <div id="resumeEmpty" class="empty-hint">点击「生成我的简历」后，这里会显示完整简历。</div>
+      </div>
+    </section>
+
+    <!-- ============ 板块 B：岗位匹配 ============ -->
+    <section class="board" id="board-match" hidden>
+      <div class="card" data-step="1">
+        <div class="card-head">
+          <h2>匹配画像</h2>
+          <span class="muted small">选择简历版本后自动带出画像，可调整</span>
+        </div>
+        <div class="grid">
+          <label>简历版本
+            <select id="inpResumeVer" class="input"></select>
+          </label>
+          <label>意向城市<input id="inpMatchCity" class="input" placeholder="如 深圳"></label>
+          <label>生成条数
+            <select id="inpMaxResults" class="input">
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="50">50</option>
+            </select>
+          </label>
+          <label class="wide">个人画像
+            <textarea id="inpProfileText" class="input tall" rows="4"></textarea>
+          </label>
+        </div>
+        <div class="dir-reco">
+          <span class="muted small">推荐方向：</span>
+          <div id="directionChips" class="chips"></div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-primary btn-lg" id="btnMatch">🚀 开始匹配</button>
+        </div>
+      </div>
+
+      <div class="card" data-step="2">
+        <div class="card-head">
+          <h2>岗位清单</h2>
+          <span id="matchMeta" class="muted small"></span>
+          <button class="btn btn-ghost btn-sm hidden" id="btnExportCsv">⬇ 导出 CSV</button>
+        </div>
+        <div id="jobsList" class="jobs-list"></div>
+        <div id="jobsEmpty" class="empty-hint">点击「开始匹配」查看为你找到的岗位。</div>
+      </div>
+
+      <div class="card" data-step="3">
+        <h2>我收藏的岗位</h2>
+        <div id="savedList" class="jobs-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ 板块 C：面试准备 ============ -->
+    <section class="board" id="board-interview" hidden>
+      <div class="card" data-step="1">
+        <div class="card-head">
+          <h2>面试材料</h2>
+          <span id="matStatus" class="muted small"></span>
+        </div>
+        <div class="grid">
+          <label>简历版本
+            <select id="inpIntVer" class="input"></select>
+          </label>
+          <label class="wide">意向岗位 JD
+            <textarea id="inpIntJd" class="input" rows="3" placeholder="粘贴岗位描述，如：负责 RAG 系统开发，要求掌握 Python、LangChain、向量检索…"></textarea>
+          </label>
+          <label class="wide">补充信息
+            <textarea id="inpIntExtra" class="input" rows="2" placeholder="任何你认为有用的文本，如面经链接、面试官关注点、内推备注…"></textarea>
+          </label>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-primary btn-lg" id="btnGenMaterials">🎤 生成面试材料</button>
+          <button class="btn hidden" id="btnExportMaterials">⬇ 导出 HTML</button>
+        </div>
+        <div id="matPreview" class="mat-preview"></div>
+      </div>
+
+      <div class="card" data-step="2">
+        <div class="card-head">
+          <h2>面试复盘</h2>
+          <span class="muted small">输入复盘要点后一键总结，自动写入面试经验</span>
+        </div>
+        <textarea id="inpMsrNote" class="input tall" rows="5" placeholder="粘贴或输入面试复盘，如：问了哪些问题、表现如何、下次改进…"></textarea>
+        <div class="panel-actions">
+          <button class="btn btn-primary" id="btnMsrSummarize">⚡ 一键总结</button>
+          <button class="btn" id="btnMsrView">📄 查看面试经验</button>
+          <button class="btn" id="btnMsrExport">⬇ 导出 Markdown</button>
+        </div>
+        <div id="msrView" class="kv-view"></div>
+      </div>
+    </section>
+
+    <!-- ============ 板块 D：面试跟踪（复现 interview-tracker 子项目） ============ -->
+    <section class="board" id="board-tracker" hidden>
+      <!-- 今日要点：置顶 + 待办提醒 -->
+      <div class="card" data-step="1">
+        <div class="card-head">
+          <h2>今日要点</h2>
+          <span class="muted small">有面试的投递自动置顶 · 未来 7 天节点提醒</span>
+        </div>
+        <div class="dashboard">
+          <div class="dash-pinned">
+            <div class="dash-title">📌 置顶</div>
+            <div id="trkPinned" class="pinned-items"></div>
+          </div>
+          <div class="dash-remind">
+            <div class="dash-title">🔔 待办事项<span class="clock" id="trkClock">--</span></div>
+            <div id="trkReminder" class="reminder-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 智能识别（无 Key 时置灰） -->
+      <div class="card" data-step="1">
+        <div class="quick-parse">
+          <span class="qp-label">✨ 智能识别</span>
+          <textarea id="trkQpText" rows="2" placeholder="粘贴投递 / 面试信息…"></textarea>
+          <button class="btn btn-primary" id="btnTrkQp">识别补充</button>
+          <span class="qp-hint" id="trkQpHint">识别结果先进入确认表单，核对无误后再保存</span>
+        </div>
+      </div>
+
+      <!-- 工具栏 + 分类 Tab -->
+      <div class="card" data-step="2">
+        <div class="track-toolbar">
+          <button class="btn btn-primary" id="btnTrkAdd">＋ 新增投递</button>
+          <div class="spacer"></div>
+          <input class="input" id="trkSearch" type="text" placeholder="搜索公司 / 岗位…" style="max-width:190px">
+          <select class="input" id="trkStatus" style="max-width:150px">
+            <option value="">状态：全部</option>
+            <option value="1">进行中</option>
+            <option value="0">已投待进展</option>
+            <option value="2">已挂 / 放弃</option>
+            <option value="3">Offer</option>
+          </select>
+          <select class="input" id="trkCity" style="max-width:130px"><option value="">城市：全部</option></select>
+          <select class="input" id="trkWorkType" style="max-width:160px">
+            <option value="">工作类型：全部</option>
+            <option value="autumn">秋招</option>
+            <option value="convert">有转正实习</option>
+            <option value="nonconvert">日常实习</option>
+            <option value="unknown">未知</option>
+          </select>
+        </div>
+        <div class="track-tabs" id="trkTabs">
+          <button class="ttab active" data-tab="all">全部</button>
+          <button class="ttab" data-tab="intern">实习</button>
+          <button class="ttab" data-tab="autumn">秋招</button>
+          <button class="ttab" data-tab="offer">Offer</button>
+        </div>
+      </div>
+
+      <!-- 投递列表（横版卡片，分组 + 组内按紧迫性排序） -->
+      <div class="card" data-step="3">
+        <div class="card-head">
+          <h2>投递列表</h2>
+          <span class="muted small">进行中优先 · 面试 / 笔试截止越近越靠前 · 终态自动沉底</span>
+        </div>
+        <div id="trkList" class="track-list"></div>
+        <div id="trkEmpty" class="empty-hint">暂无投递记录 · 点「＋ 新增投递」或使用智能识别录入</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ================= 全流程人工确认点 modal（N2 画像追问 / N9 投递确认） ================= -->
+<div id="runModalMask" class="modal-mask hidden">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <span class="modal-title" id="runModalTitle">需要你补充</span>
+      <button id="btnCloseRunModal" class="btn btn-sm btn-ghost" type="button">✕</button>
+    </div>
+    <div class="modal-body" id="runModalBody"></div>
+    <div class="modal-foot" id="runModalFoot"></div>
+  </div>
+</div>
+
+<!-- ================= 面试经验 modal ================= -->
+<div id="msrModalMask" class="modal-mask hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">📄 面试经验.md</span>
+      <button id="btnCloseMsr" class="btn btn-sm btn-ghost" type="button">✕</button>
+    </div>
+    <div class="modal-body"><pre id="msrMdView" class="md-view"></pre></div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" id="btnMsrExportModal" type="button">⬇ 导出 Markdown</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 面试追踪弹窗 ================= -->
+<div id="trkModalMask" class="modal-mask hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="trkModalTitle">新增投递</span>
+      <button id="btnTrkClose" class="btn btn-sm btn-ghost" type="button">✕</button>
+    </div>
+    <div class="modal-body" id="trkModalBody"></div>
+    <div class="modal-foot">
+      <button class="btn" id="btnTrkCancel" type="button">取消</button>
+      <button class="btn btn-primary" id="btnTrkSave" type="button">保存并重排</button>
+    </div>
+  </div>
+</div>
+<div id="trkToast" class="toast"></div>
+
+<footer class="foot">JobHunter 求职助手 · 输出结论请以人工复核为准</footer>
+<script src="/static/js/app.js?v={{JS_V}}"></script>
+</body>
+</html>

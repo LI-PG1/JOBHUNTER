@@ -248,13 +248,14 @@ event: done   {"previewUrl":"/preview/<岗位>/<岗位>面试准备.html","verif
 - [ ] 对话式指令入口（意图解析复用云端 API）
 - [ ] 按 search_zones 的 prompt 驱动的联网搜索 Agent（自动抓面经/公司动态回填画像）
 - [ ] 面经实证回填技能、岗位画像更新技能
-- [ ] Critic 自修复：build 失败自动补章节标记重跑；审核 WARN 自动重生成相关文件
+- [ ] Critic 自修复：build 失败自动补章节标记重跑
+- [x] 审核 WARN/FAIL 自动重生成相关文件（M3 质量回路：`on` 模式携 issues 自动回炉，`warn-only` 模式前端手动回炉）
 
-### M3 Agent 增强（后续）
+### M3 Agent 增强
 
-- [ ] 版本一致性强校验（审核从"告警"升级为"阻断/自动修正"）
-- [ ] 多 Agent 分工（生成/校验/搜索 Agent）
-- [ ] 跨岗位会话记忆（生成历史档案可检索）
+- [x] 版本一致性强校验（M3 质量回路：D1 数字口径 / D2 项目不漂移 确定性规则 + D3 LLM JD 契合，`on` 模式升级为"阻断/自动修正"，`warn-only` 保留告警）——落地 `quality_config.js` / `quality_check.js` / `reviewer.js`
+- [x] 多 Agent 分工（生成 Agent=LLM 生成、校验 Agent=`quality_check.js` 规则校验、审核 Agent=`reviewer.js` LLM 审核，三职分离）
+- [ ] 跨岗位会话记忆（生成历史档案可检索）——列入 M3b MSR 复盘工具
 
 ### M4 打磨部署（后续）
 

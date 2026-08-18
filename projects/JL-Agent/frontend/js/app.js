@@ -118,9 +118,22 @@
       fillForm(j.data);
       $id("cur-resume").textContent = ((j.data.basicInfo || {}).name || "未命名");
       $id("btn-generate").disabled = false;
+      // 刷新预览（§6 重装配）：历史简历也按当前数据出图，避免点击列表后预览不联动
+      return fetch("/api/resume/" + id + "/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }).then(function (r) { return r.json(); });
+    }).then(function (rj) {
+      if (rj.code === 0) {
+        state.html = rj.data.html;
+        state.config = rj.data.config;
+        Adapt.render(rj.data.html);
+      }
       loadList();
     }).catch(function (e) {
       Adapt.showBanner("打开简历失败：" + e.message, true);
+      loadList();
     });
   }
 
@@ -148,7 +161,7 @@
       '</div>',
     proj: '<div class="grid">' +
       '<label>项目名称<input class="in-name" maxlength="64"></label>' +
-      '<label>角色<input class="in-role" maxlength="32"></label>' +
+      '<label>角色<input class="in-role" maxlength="32" placeholder="如：算法工程师 / 后端开发"></label>' +
       '<label>开始<input class="in-start" type="month"></label>' +
       '<label>结束<input class="in-end" type="month"></label>' +
       '<label class="full">技术栈（逗号分隔）<input class="in-stack" maxlength="300"></label>' +
@@ -305,7 +318,7 @@
         if (!item.name) return;
       } else if (sec === "job") {
         item = { title: q("in-title"), jdText: row.querySelector(".in-jd").value.trim() };
-        if (!item.title || !item.jdText) return;
+        if (!item.title) return;   // 岗位名称必填；JD 原文可选（2026-08-17）
       }
       out.push(item);
     });
@@ -649,8 +662,8 @@
     "honor-in-name": { t: "奖项", h: "<p>填写获奖 / 证书名称，如「国家奖学金」「CET-6」。</p>", f: "可选。" },
     "honor-in-time": { t: "时间", h: "<p>填写获奖 / 发证时间，如「2024.06」。</p>", f: "可选。" },
     // ---- 目标岗位 JD（动态行） ----
-    "job-in-title": { t: "岗位名称", h: "<p>填写投递岗位名称，如「AI 应用开发工程师」。</p>", f: "必填；JD 至少 1 条。" },
-    "job-in-jd": { t: "JD 原文", h: "<p>粘贴岗位描述原文（可多段）。AI 据此对齐简历关键词，匹配度更高。</p>", f: "必填；JD 越完整，生成越贴合。" },
+    "job-in-title": { t: "岗位名称", h: "<p>填写投递岗位名称，如「AI 应用开发工程师」。</p>", f: "必填；JD 原文选填。" },
+    "job-in-jd": { t: "JD 原文", h: "<p>粘贴岗位描述原文（可多段）。AI 据此对齐简历关键词，匹配度更高。</p>", f: "选填；JD 越完整，生成越贴合。" },
     // ---- 保存 / 列表 / 导出 ----
     "btn-save": { t: "保存简历", h: "<p>保存当前填写的简历信息到本地。必填项缺失会提示并高亮定位。</p>", f: "保存后「简历生成」按钮才可用。" },
     "btn-new": { t: "新建简历", h: "<p>清空当前表单，开始填写一份全新简历。</p>", f: "新建不会删除已保存的简历。" },
@@ -1223,12 +1236,21 @@
   function openSSE(taskId) {
     closeSSE();
     var curStage = 0, curStageTotal = 1;
+    // 阶段中文映射（dag STAGES：analyzing/generating/reviewing/building）
+    var STAGE_LABELS = {
+      analyzing: "JD 分析",
+      generating: "板块生成",
+      reviewing: "审核中",
+      building: "装配渲染",
+    };
+    var REVIEW_VERDICT = { pass: "通过", accept_with_issues: "通过（待优化）" };
     es = new EventSource("/api/task/" + taskId + "/events");
     es.addEventListener("task.stage", function (ev) {
       var d = JSON.parse(ev.data);
       curStage = d.stageIndex || 0;
       curStageTotal = d.stageTotal || 1;
-      setProgress((curStage - 1) / curStageTotal, "阶段：" + d.stage + "（" + curStage + "/" + curStageTotal + "）");
+      setProgress((curStage - 1) / curStageTotal,
+        "阶段：" + (STAGE_LABELS[d.stage] || d.stage) + "（" + curStage + "/" + curStageTotal + "）");
     });
     es.addEventListener("block.progress", function (ev) {
       var d = JSON.parse(ev.data);
@@ -1238,6 +1260,15 @@
     es.addEventListener("block.done", function (ev) {
       var d = JSON.parse(ev.data);
       $id("progress-text").textContent = "板块完成：" + (d.block || "") + (d.degraded ? "（降级）" : "");
+    });
+    // review 回路：规则审核结果（blocker 触发带意见重写后推送）
+    es.addEventListener("block.review", function (ev) {
+      var d = JSON.parse(ev.data);
+      var label = REVIEW_VERDICT[d.verdict] || d.verdict;
+      var text = "审核 " + (d.block || "") + "：" + label;
+      if (d.rewritten) text += "（已带意见重写 " + (d.rounds || 0) + " 轮）";
+      if (d.blockerCount) text += "，残留问题 " + d.blockerCount + " 个";
+      $id("progress-text").textContent = text;
     });
     es.addEventListener("task.done", function (ev) {
       var d = JSON.parse(ev.data);

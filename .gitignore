@@ -11,6 +11,11 @@ venv/
 .env.*
 !.env.example
 
+# 运行时数据（含用户 Key / 本地记录，不入库）
+job-hunter-orchestrator/web/api_keys.json
+job-hunter-orchestrator/web/tools.json
+components/tracker_agent/data/
+
 # 运行时数据 / 检查点
 .langgraph_api/
 checkpoints/

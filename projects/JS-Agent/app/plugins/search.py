@@ -334,6 +334,14 @@ class PlaywrightBackend(SearchBackend):
                 browser.close()
 
 
+# 渠道 → 后端偏好（搜索回路 §3.3）：决策器选 channel 时优先尝试，失败仍按原链回退
+CHANNEL_PREFER: dict[str, list[str]] = {
+    "招聘平台": ["智谱 web_search", "百度", "360搜索"],
+    "官网": ["百度", "智谱 web_search"],
+    "社区": ["智谱 web_search", "DuckDuckGo", "Bing"],
+}
+
+
 class SearchPlugin:
     """搜索插件：自动探测后端 + 运行时自动回退 + 失败冷却（反爬限流窗口跳过）。"""
 
@@ -383,10 +391,19 @@ class SearchPlugin:
     def _in_cooldown(self, name: str) -> bool:
         return time.time() < self._cooldown.get(name, 0)
 
-    def search(self, query: str, num: int = 8) -> dict[str, Any]:
-        """按优先级执行，失败自动回退下一后端；异常后端进入冷却。返回 {"results", "backend"}。"""
+    def search(self, query: str, num: int = 8, prefer: str | None = None) -> dict[str, Any]:
+        """按优先级执行，失败自动回退下一后端；异常后端进入冷却。返回 {"results", "backend"}。
+
+        prefer：渠道偏好（招聘平台/官网/社区，映射 CHANNEL_PREFER）——偏好后端先试，
+        失败仍按原链回退（回退链本身是确定性代码，LLM 只做行动选择）。
+        """
+        order = self.backends
+        if prefer:
+            prefs = [b for b in order if b.name in CHANNEL_PREFER.get(prefer, [])]
+            if prefs:
+                order = prefs + [b for b in order if b.name not in CHANNEL_PREFER.get(prefer, [])]
         last_err: Exception | None = None
-        for backend in self.backends:
+        for backend in order:
             if not backend.available:
                 continue
             if self._in_cooldown(backend.name):
