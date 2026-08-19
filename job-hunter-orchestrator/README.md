@@ -26,7 +26,7 @@ START → parse_profile → check_profile ──缺失&未满2轮→ check_profi
                                           │ fail&未满: gap_analysis → resume_improve ──┘
                                           │ fail&已满: degrade_mark → build_submission_plan
                                           │
-                                          confirm_resume(N9 投递确认): 确认→prep_materials / 提修改→resume_improve / 拒绝→END
+                                          confirm_resume(N9 简历确认): 确认使用→prep_materials / 提修改→resume_improve / 拒绝→END
                                           prep_materials → track_jobs → final_report
 ```
 
