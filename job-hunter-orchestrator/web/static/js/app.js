@@ -917,17 +917,22 @@ function verdictText(d) {
   return map[d.gate_verdict] || "简历已生成";
 }
 
-function renderSheet(d) {
+function renderSheet(d, forceForm) {
   const r = d.resume || {};
   const sheet = $("resumeSheet");
   // 优先渲染 resume_agent 模板 html（专业 ATS 版式：单栏/量化/STAR/高密度）；
-  // 无 html（组件降级/旧数据）时回退表单回显版
-  if (r.html && String(r.html).trim()) {
+  // forceForm=true（表单实时预览）跳过 html 分支；无 html（组件降级/旧数据）时回退表单回显版
+  if (!forceForm && r.html && String(r.html).trim()) {
     sheet.className = "sheet sheet-html";
     sheet.innerHTML = `<iframe class="resume-frame" srcdoc="${esc(r.html)}" title="简历预览" onload="resumeFrameAutoHeight(this)"></iframe>`;
     return;
   }
   const p = collectProfile();
+  renderSheetForm(sheet, p, r);
+}
+
+/* 表单回显/实时预览：纯前端按当前表单值渲染（无 LLM，所见即所得） */
+function renderSheetForm(sheet, p, r) {
   const onePage = $("inpResumePages").value === "1";
   const photo = localStorage.getItem(PHOTO_KEY) || "";
   // summary 兼容两种形态：mock 返回字符串，real 可能返回 [{text}] 数组
@@ -970,6 +975,29 @@ function renderSheet(d) {
     <div class="sheet-sec"><h3>实习/工作经历</h3>${intHtml}</div>
     ${awardHtml ? `<div class="sheet-sec"><h3>奖项荣誉</h3>${awardHtml}</div>` : ""}
     <div class="sheet-sec"><h3>技能</h3><div class="sheet-skills">${esc(p.skills.join(" · "))}</div></div>`;
+}
+
+/* 简历表单实时预览：输入即渲染（防抖 300ms），生成/选用版本后由 renderSheet 覆盖 */
+let _livePreviewTimer = null;
+function bindLivePreview() {
+  const root = $("board-resume");
+  if (!root) return;
+  const fire = () => {
+    if (_livePreviewTimer) clearTimeout(_livePreviewTimer);
+    _livePreviewTimer = setTimeout(() => {
+      $("resumeEmpty")?.classList.add("hidden");
+      $("resumeWrap")?.classList.remove("hidden");
+      renderSheet({ resume: {} }, true);
+    }, 300);
+  };
+  root.addEventListener("input", (e) => {
+    const t = e.target;
+    if (t && (t.matches("input, textarea, select"))) fire();
+  });
+  root.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t && (t.matches("input, textarea, select"))) fire();
+  });
 }
 
 /* 简历 iframe 高度自适应：按内容实际高度撑开（srcdoc 同源可直接读 body） */
@@ -2231,6 +2259,7 @@ trkBindEvents();
   switchBoard("resume");
   renderLanding();  // 默认先展示着陆页，点击板块卡片后进入对应板块
   renderApiBanner(); // 主界面 API Key 状态提示（real 未配 / mock 演示）
+  bindLivePreview(); // 简历表单输入即预览（所见即所得）
 })();
 
 /* ================= 通用工具 ================= */
@@ -2346,6 +2375,10 @@ function confirmResume(it) {
     $("runModalMask").classList.remove("hidden");
     const bind = (id, action) => $(id).addEventListener("click", () => {
       const note = ($("ipDecision")?.value || "").trim();
+      if (action === "modify" && !note) {
+        trkToast("请先填写修改意见，再点击「提修改」");
+        return;
+      }
       $("runModalMask").classList.add("hidden");
       if (action === "approve") resolve({ action: "approve" });
       else if (action === "modify") resolve({ action: "modify", feedback: note });

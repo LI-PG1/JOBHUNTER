@@ -420,6 +420,21 @@ def _skeleton_resume(profile: Dict[str, Any], target_jobs: list,
         })
     honors = [{"name": str(a).strip()[:128]} for a in (profile.get("awards") or [])
               if str(a).strip()]
+    # 用户修改意见（N9 modify）→ 注入 summary 的首条「已编辑句子」：
+    # 组件 gen_summary 保留 edited 句子并优先排前，LLM 围绕它生成 → 意见真实生效（不再「填了没反应」）
+    feedback_hint = ""
+    user_edited = []
+    if feedback:
+        hints = []
+        for f in feedback:
+            if isinstance(f, dict) and str(f.get("suggestion", "")).strip():
+                hints.append(str(f["suggestion"]).strip())
+            elif isinstance(f, str) and f.strip():
+                hints.append(f.strip())
+        if hints:
+            feedback_hint = f"已按修改意见重新生成（{len(hints)} 条）：" + "；".join(hints)
+            user_edited = [{"text": feedback_hint[:300], "edited": True,
+                            "criticality": "critical"}]
     return {
         "direction": direction,
         "resume": {
@@ -433,8 +448,9 @@ def _skeleton_resume(profile: Dict[str, Any], target_jobs: list,
             "education": _edu_items(profile),
             "internship": _int_items(profile),
             "skill": skills, "project": projects, "honor": honors,
+            "summary": user_edited,
             "generation": {"deepSearch": False}, "contentPlan": {},
-            "feedback_hint": f"已按建议改进（{len(feedback)} 条）" if feedback else "",
+            "feedback_hint": feedback_hint,
         },
         "jobs": [
             {"id": f"job-{i}", "title": j.get("title", ""), "jdText": j.get("jd", ""),
@@ -840,7 +856,15 @@ def confirm_resume(state: JobHunterState) -> Dict[str, Any]:
                 len(matched), (plan.get("summary") or {}).get("total", len(plan.get("items", []))))
     logger.info("N9 投递确认 用户决定: action=%s decision=%s", action, decision)
     if action == "modify":
-        feedback = list(decision.get("feedback", []))
+        # 前端传 {action:"modify", feedback: "自由文本"}（字符串）；规范化成组件可读的 dict 结构，
+        # 避免 list("文本") 被拆成单字符数组导致修改意见丢失（用户反馈「填了没反应」）
+        raw = decision.get("feedback") or decision.get("reason") or ""
+        if isinstance(raw, list):
+            feedback = [f for f in raw if isinstance(f, dict) and f.get("suggestion")]
+        elif isinstance(raw, str) and raw.strip():
+            feedback = [{"suggestion": raw.strip()}]
+        else:
+            feedback = []
         logger.info("N9 投递确认: modify → 回 N8 简历改进, feedback=%d 条", len(feedback))
         return {
             "resume_decision": decision,
