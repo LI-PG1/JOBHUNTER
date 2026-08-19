@@ -93,6 +93,49 @@ document.querySelectorAll(".bnav").forEach((b) => b.addEventListener("click", ()
 
 /* ================= 着陆页：选择进入哪个板块 ================= */
 const BOARD_ICON = { resume: "📄", match: "🎯", interview: "🎤", tracker: "📋" };
+
+/* 主界面 API 状态提示条：real 未配 Key 或 mock 演示模式时置顶横幅提醒 */
+async function renderApiBanner() {
+  try {
+    const d = await (await fetch("/api/health")).json();
+    let html = "";
+    let cls = "";
+    if (d.mode === "real" && !d.key_configured) {
+      cls = "banner-warn";
+      html = `⚠ 未配置 API Key：简历/面试材料将降级为占位骨架内容。请点击右上角「⚙ 控制台」配置后重新生成。`;
+    } else if (d.mode === "mock") {
+      cls = "banner-info";
+      html = `🧪 演示模式（mock）：产物为占位内容。配置 API Key（⚙ 控制台）后启用真实生成。`;
+    }
+    if (!html) return;
+    let bar = $("apiBanner");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "apiBanner";
+      document.body.insertBefore(bar, document.body.firstChild);
+    }
+    bar.className = cls;
+    bar.innerHTML = `<span>${html}</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="bannerConsole">⚙ 配置</button>`;
+    const btn = $("bannerConsole");
+    if (btn) btn.addEventListener("click", () => { $("consoleMask").classList.remove("hidden"); loadConsole(); });
+  } catch { /* health 不可达时不打扰 */ }
+}
+
+/* 生成前预检：real 未配 Key 直接拦截并引导配置（避免静默产出占位/乱码材料） */
+async function ensureKeyReady() {
+  try {
+    const d = await (await fetch("/api/health")).json();
+    if (d.mode === "real" && !d.key_configured) {
+      trkToast("未配置 API Key：请先到右上角「⚙ 控制台」配置后再生成");
+      $("consoleMask").classList.remove("hidden");
+      loadConsole();
+      return false;
+    }
+  } catch { /* health 不可达：放行由后端兜底 */ }
+  return true;
+}
+
 function enterBoard(name) {
   switchBoard(name);
   $("landing").classList.add("hidden");
@@ -833,6 +876,7 @@ $("btnPhotoClear").addEventListener("click", () => {
 $("inpResumePages").addEventListener("change", () => { if (window._runData) renderSheet(window._runData); });
 
 $("btnGenResume").addEventListener("click", async () => {
+  if (!(await ensureKeyReady())) return;
   $("genStatus").textContent = "生成中…";
   try {
     const p = collectProfile();
@@ -941,6 +985,7 @@ $("btnExportPdf").addEventListener("click", () => window.print());
 
 /* ================= 板块 B：岗位匹配 ================= */
 $("btnMatch").addEventListener("click", async () => {
+  if (!(await ensureKeyReady())) return;
   $("matchMeta").textContent = "正在搜索…";
   try {
     const resp = await fetch("/api/match", {
@@ -1047,6 +1092,7 @@ function renderSaved() {
 
 /* ================= 板块 C：面试准备 ================= */
 $("btnGenMaterials").addEventListener("click", async () => {
+  if (!(await ensureKeyReady())) return;
   $("matStatus").textContent = "生成中…";
   try {
     const jd = $("inpIntJd").value.trim();
@@ -2184,6 +2230,7 @@ trkBindEvents();
 (async function init() {
   switchBoard("resume");
   renderLanding();  // 默认先展示着陆页，点击板块卡片后进入对应板块
+  renderApiBanner(); // 主界面 API Key 状态提示（real 未配 / mock 演示）
 })();
 
 /* ================= 通用工具 ================= */
@@ -2258,7 +2305,8 @@ function askProfile(it) {
       $("runModalMask").classList.add("hidden");
       resolve(answers);
     };
-    const cancel = () => { $("runModalMask").classList.add("hidden"); resolve({}); };
+    // 取消 = 终止整个流程（apiRun 收到 null 抛「流程已取消」，不再回环追问）
+    const cancel = () => { $("runModalMask").classList.add("hidden"); resolve(null); };
     $("runModalOk").addEventListener("click", finish);
     $("runModalCancel").addEventListener("click", cancel);
     $("btnCloseRunModal").addEventListener("click", cancel);

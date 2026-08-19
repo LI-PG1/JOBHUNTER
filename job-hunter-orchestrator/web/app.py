@@ -45,13 +45,17 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/api/health", tags=["health"])
 def health() -> dict:
-    """服务与依赖探测：运行模式、骨架图（单仓库自包含，无外部服务依赖）。"""
+    """服务与依赖探测：运行模式、骨架图、LLM Key 配置状态（前端主界面提示用）。"""
     from graph.build import build_graph  # noqa: PLC0415  骨架图可导入性
+    from web.routers.console import _read_env  # noqa: PLC0415  与控制台同一套 .env 解析
 
     mode = os.getenv("RUN_MODE", "mock")
+    env = _read_env()
     return {
         "ok": True,
         "mode": mode,
+        "key_configured": bool(env.get("LLM_API_KEY", "").strip()),
+        "llm_model": env.get("LLM_MODEL", ""),
         "graph": "job_hunter (build_graph 可导入)",
     }
 
