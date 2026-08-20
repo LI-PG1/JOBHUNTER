@@ -33,10 +33,10 @@ _LAYOUT = {
         # 模板固定间距（px，对应 CSS）：.item{margin-top} / .item-body{margin-top} /
         # .duty-overview{margin-top} / .skill-row、.honor{margin-top}
         "itemMarginPx": 6, "bodyMarginPx": 1, "overviewMarginPx": 2, "rowMarginPx": 3,
-        "density": {   # compact / normal / loose（对应模板 data-density 档）
-            "compact": {"fontPt": 9.5, "lheight": 1.28, "gapPx": 6, "liIndentPx": 10, "liMarginPx": 0},
-            "normal": {"fontPt": 10.0, "lheight": 1.35, "gapPx": 9, "liIndentPx": 14, "liMarginPx": 1},
-            "loose": {"fontPt": 10.5, "lheight": 1.45, "gapPx": 14, "liIndentPx": 18, "liMarginPx": 3},
+        "density": {   # compact / normal / loose（对应模板 data-density 档，与 resume-1page.html CSS 同步）
+            "compact": {"fontPt": 8.5, "lheight": 1.24, "gapPx": 6, "liIndentPx": 10, "liMarginPx": 0},
+            "normal": {"fontPt": 9.0, "lheight": 1.30, "gapPx": 9, "liIndentPx": 14, "liMarginPx": 1},
+            "loose": {"fontPt": 9.5, "lheight": 1.40, "gapPx": 14, "liIndentPx": 18, "liMarginPx": 3},
         },
     },
     "two-pages": {
@@ -46,10 +46,10 @@ _LAYOUT = {
             "watermark": 12.0, "safe": 6.0,
         },
         "itemMarginPx": 9, "bodyMarginPx": 2, "overviewMarginPx": 3, "rowMarginPx": 3,
-        "density": {
-            "compact": {"fontPt": 10.5, "lheight": 1.4, "gapPx": 9, "liIndentPx": 12, "liMarginPx": 1},
-            "normal": {"fontPt": 11.0, "lheight": 1.5, "gapPx": 14, "liIndentPx": 16, "liMarginPx": 2},
-            "loose": {"fontPt": 11.5, "lheight": 1.62, "gapPx": 20, "liIndentPx": 20, "liMarginPx": 4},
+        "density": {   # 与 resume-2pages.html CSS 同步
+            "compact": {"fontPt": 9.5, "lheight": 1.4, "gapPx": 9, "liIndentPx": 12, "liMarginPx": 1},
+            "normal": {"fontPt": 10.0, "lheight": 1.5, "gapPx": 14, "liIndentPx": 16, "liMarginPx": 2},
+            "loose": {"fontPt": 10.5, "lheight": 1.62, "gapPx": 20, "liIndentPx": 20, "liMarginPx": 4},
         },
     },
 }
@@ -250,13 +250,13 @@ class Assembler:
         if name:
             head = head.replace("{{姓名}}", _esc(name))
 
-        # 板块顺序：个人信息、个人评价、教育经历、证书荣誉、实习经历、项目经验、技能特长
-        # （自我评价紧跟联系方式置顶，与 resume-1page.html 模板头部占位一致；无数据时 _summary 返回空串）
-        # 密度自适应（防大面积空白/溢出）：按字号/行距/留白参数化估算内容占用，自动提/降档
+        # 板块顺序：教育经历、证书荣誉、实习经历、项目经验、技能特长、自我评价（末尾）
+        # 对齐参考简历版式（企小鹅简历：教育背景→证书荣誉→实习经历→项目经验→技能特长→自我评价）；
+        # 无数据时对应 _xxx 返回空串，不占位
         effective_density = _auto_density(page_option, resume, density, watermark_mode == "practice")
-        parts = [self._header(resume), self._contact(resume), self._summary(resume, page_option),
+        parts = [self._header(resume), self._contact(resume),
                  self._education(resume), self._honor(resume), self._internship(resume),
-                 self._projects(resume), self._skills(resume)]
+                 self._projects(resume), self._skills(resume), self._summary(resume, page_option)]
         if watermark_mode == "practice":
             parts.append(self._watermark())
 
@@ -325,6 +325,7 @@ class Assembler:
         if not sentences:
             return ""
         # 逐句渲染（§5.5）：data-block/data-index 供前端定位点击编辑
+        # 对齐参考简历版式：自我评价为末尾带标题区块（一页/两页一致）
         if page_option == "two-pages":
             body = "\n".join(
                 f'  <p class="summary-sentence" data-block="summary" data-index="{i}">{_esc(s)}</p>'
@@ -332,9 +333,10 @@ class Assembler:
             return ('<div class="section" id="sec-summary">\n  <div class="sec-title">自我评价</div>\n'
                     f'  <div class="item-body">\n{body}\n  </div>\n</div>')
         body = "\n".join(
-            f'  <span class="summary-sentence" data-block="summary" data-index="{i}">{_esc(s)}</span>'
+            f'  <p class="summary-sentence" data-block="summary" data-index="{i}">{_esc(s)}</p>'
             for i, s in enumerate(sentences))
-        return f'<div class="summary" id="sec-summary">\n{body}\n</div>'
+        return ('<div class="section" id="sec-summary">\n  <div class="sec-title">自我评价</div>\n'
+                f'  <div class="summary">\n{body}\n  </div>\n</div>')
 
     def _education(self, resume: dict) -> str:
         items = []
@@ -351,7 +353,7 @@ class Assembler:
             )
         if not items:
             return ""
-        return ('<div class="section">\n  <div class="sec-title">教育经历</div>\n'
+        return ('<div class="section">\n  <div class="sec-title">教育背景</div>\n'
                 + "\n".join(items) + "\n</div>")
 
     def _internship(self, resume: dict) -> str:

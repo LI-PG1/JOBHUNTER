@@ -20,29 +20,30 @@
 <style>
   :root{
     --ink:#1f2937; --muted:#6b7280; --line:#cbd5e1; --accent:#1e3a5f;
-    --photo-w:64px; --photo-h:85px;          /* 照片位 3:4 */
+    --photo-w:66px; --photo-h:92px;          /* 照片位 一寸照 25×35mm（约 70×98pt） */
     --gap:9px;                               /* 区块间距（排版层密度档覆盖） */
-    --lheight:1.35;                          /* 行距（排版层密度档覆盖） */
-    --body-size:10pt;                        /* 正文字号（排版层密度档覆盖） */
+    --lheight:1.3;                           /* 行距（排版层密度档覆盖） */
+    --body-size:9pt;                         /* 正文字号（排版层密度档覆盖） */
     --li-margin:1px;                         /* 要点间距（排版层密度档覆盖） */
     --li-indent:14px;                        /* 列表缩进（排版层密度档覆盖） */
   }
   *{box-sizing:border-box;margin:0;padding:0}
   @page{size:A4;margin:12mm}
   body{
-    font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Helvetica Neue",Arial,sans-serif;
+    /* 参照参考简历：中文宋体 + 英文衬线（Latin Modern Roman 风格） */
+    font-family:"Noto Serif SC","Source Han Serif SC","Songti SC","SimSun","STSong","Times New Roman","Latin Modern Roman",serif;
     color:var(--ink);line-height:var(--lheight);background:#fff;font-size:var(--body-size);
   }
   /* ---------- 排版层密度档：compact / normal / loose（全局统一，全部板块参与） ---------- */
-  body[data-density="compact"]{--gap:6px;--lheight:1.28;--body-size:9.5pt;--li-margin:0;--li-indent:10px}
-  body[data-density="normal"]{--gap:9px;--lheight:1.35;--body-size:10pt;--li-margin:1px;--li-indent:14px}
-  body[data-density="loose"]{--gap:14px;--lheight:1.45;--body-size:10.5pt;--li-margin:3px;--li-indent:18px}
+  body[data-density="compact"]{--gap:6px;--lheight:1.24;--body-size:8.5pt;--li-margin:0;--li-indent:10px}
+  body[data-density="normal"]{--gap:9px;--lheight:1.3;--body-size:9pt;--li-margin:1px;--li-indent:14px}
+  body[data-density="loose"]{--gap:14px;--lheight:1.4;--body-size:9.5pt;--li-margin:3px;--li-indent:18px}
   /* ---------- 头部：姓名 + 照片（右上） ---------- */
-  .header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--ink);padding-bottom:6px}
+  .header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:6px}
   .name{font-size:17pt;font-weight:700;letter-spacing:1px}
-  .photo{flex:0 0 auto;width:var(--photo-w);height:var(--photo-h);border-radius:3px;overflow:hidden}
+  .photo{flex:0 0 auto;width:var(--photo-w);height:var(--photo-h);border:1px solid var(--ink);border-radius:0;overflow:hidden}
   .photo img{width:100%;height:100%;object-fit:cover;display:block}
-  .photo.placeholder{border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:8pt;background:#f8fafc}
+  .photo.placeholder{border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:7pt;background:#f8fafc}
   .photo.empty{display:none}
   /* ---------- 联系方式 ---------- */
   .contact{display:flex;flex-wrap:wrap;gap:2px 16px;padding:5px 0 6px;font-size:9.5pt;color:var(--muted)}
@@ -52,7 +53,7 @@
   /* ---------- 版块 ---------- */
   .section{margin-top:var(--gap)}
   .sec-title{
-    font-size:10.5pt;font-weight:700;color:var(--accent);
+    font-size:11pt;font-weight:700;color:var(--accent);
     border-bottom:1px solid var(--line);padding-bottom:2px;margin-bottom:5px;letter-spacing:1px;
     page-break-after:avoid;break-after:avoid;   /* 标题与首个条目保持同页，避免孤悬页尾 */
   }

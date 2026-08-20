@@ -114,9 +114,13 @@ class PrepRunner:
                 max_tokens=4096, temperature=0.5)
             return {**mat, "content": content}
 
-        # 并发重写命中文件，其余原样保留（gather 保持输入顺序）
+        async def _keep(mat: dict[str, Any]) -> dict[str, Any]:
+            return mat
+
+        # 并发重写命中文件，其余原样保留（gather 保持输入顺序；全部参数须为可等待对象，
+        # 未命中项包恒等 coroutine，避免 gather 对 dict 参数哈希报 unhashable）
         state["materials"] = await asyncio.gather(*[
-            _rw(m) if m.get("name") in name_set else m for m in mats])
+            _rw(m) if m.get("name") in name_set else _keep(m) for m in mats])
 
     async def quality(self, state: PrepState) -> PrepState:
         cfg = self.quality_cfg

@@ -25,29 +25,30 @@
     --muted:#6b7280;
     --line:#cbd5e1;
     --accent:#1e3a5f;        /* 单强调色（深蓝） */
-    --photo-w:76px; --photo-h:101px;  /* 照片位 3:4 */
+    --photo-w:66px; --photo-h:92px;  /* 照片位 一寸照 25×35mm（与一页版一致） */
     --gap:14px;              /* 区块间距（排版层密度档覆盖） */
     --lheight:1.5;           /* 行距（排版层密度档覆盖） */
-    --body-size:11pt;        /* 正文字号（排版层密度档覆盖） */
+    --body-size:10pt;        /* 正文字号（排版层密度档覆盖） */
     --li-margin:2px;         /* 要点间距（排版层密度档覆盖） */
     --li-indent:16px;        /* 列表缩进（排版层密度档覆盖） */
   }
   *{box-sizing:border-box;margin:0;padding:0}
   @page{size:A4;margin:18mm}
   body{
-    font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Helvetica Neue",Arial,sans-serif;
+    /* 与一页版一致：中文宋体 + 英文衬线（Latin Modern Roman 风格） */
+    font-family:"Noto Serif SC","Source Han Serif SC","Songti SC","SimSun","STSong","Times New Roman","Latin Modern Roman",serif;
     color:var(--ink);line-height:var(--lheight);background:#fff;font-size:var(--body-size);
   }
   /* ---------- 排版层密度档：compact / normal / loose（全部板块全局参与，字号/行距/间距/缩进统一调整） ---------- */
-  body[data-density="compact"]{--gap:9px;--lheight:1.4;--body-size:10.5pt;--li-margin:1px;--li-indent:12px}
-  body[data-density="normal"]{--gap:14px;--lheight:1.5;--body-size:11pt;--li-margin:2px;--li-indent:16px}
-  body[data-density="loose"]{--gap:20px;--lheight:1.62;--body-size:11.5pt;--li-margin:4px;--li-indent:20px}
+  body[data-density="compact"]{--gap:9px;--lheight:1.4;--body-size:9.5pt;--li-margin:1px;--li-indent:12px}
+  body[data-density="normal"]{--gap:14px;--lheight:1.5;--body-size:10pt;--li-margin:2px;--li-indent:16px}
+  body[data-density="loose"]{--gap:20px;--lheight:1.62;--body-size:10.5pt;--li-margin:4px;--li-indent:20px}
   /* ---------- 头部（视觉层级 1）：姓名 + 照片（右上） ---------- */
-  .header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--ink);padding-bottom:10px}
+  .header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:10px}
   .name{font-size:20pt;font-weight:700;letter-spacing:1px}
-  .photo{flex:0 0 auto;width:var(--photo-w);height:var(--photo-h);border-radius:4px;overflow:hidden}
+  .photo{flex:0 0 auto;width:var(--photo-w);height:var(--photo-h);border:1px solid var(--ink);border-radius:0;overflow:hidden}
   .photo img{width:100%;height:100%;object-fit:cover;display:block}
-  .photo.placeholder{border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:9pt;background:#f8fafc}
+  .photo.placeholder{border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:7pt;background:#f8fafc}
   .photo.empty{display:none}
   /* ---------- 联系方式 ---------- */
   .contact{display:flex;flex-wrap:wrap;gap:3px 20px;padding:8px 0 10px;font-size:10pt;color:var(--muted)}
