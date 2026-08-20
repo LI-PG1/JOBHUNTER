@@ -26,8 +26,8 @@ SKILL_CATEGORY_ORDER = ["专业技能", "工具与框架", "语言能力"]
 _LAYOUT = {
     "one-page": {
         "width": 210.0, "height": 297.0, "margin": 12.0,
-        "fixed": {   # 固定大小元素（mm，与内容量无关）：抬头/联系方式/板块标题/条目头/水印/安全留白
-            "header": 10.0, "contact": 8.0, "secTitle": 7.2, "itemHead": 5.6,
+        "fixed": {   # 固定大小元素（mm，浏览器实测校准）：抬头/联系方式/板块标题/条目头/水印/安全留白
+            "header": 10.0, "contact": 8.0, "secTitle": 5.8, "itemHead": 3.2,
             "watermark": 8.0, "safe": 4.0,
         },
         # 模板固定间距（px，对应 CSS）：.item{margin-top} / .item-body{margin-top} /
@@ -40,9 +40,9 @@ _LAYOUT = {
         },
     },
     "two-pages": {
-        "width": 210.0, "height": 594.0, "margin": 18.0,
+        "width": 210.0, "height": 594.0, "margin": 18.0, "pages": 2,
         "fixed": {
-            "header": 13.0, "contact": 10.0, "secTitle": 9.0, "itemHead": 8.0,
+            "header": 13.0, "contact": 10.0, "secTitle": 6.3, "itemHead": 3.7,
             "watermark": 12.0, "safe": 6.0,
         },
         "itemMarginPx": 9, "bodyMarginPx": 2, "overviewMarginPx": 3, "rowMarginPx": 3,
@@ -54,15 +54,15 @@ _LAYOUT = {
     },
 }
 
-# 特殊行高的板块（模板独立 line-height）：技能行 1.6 / 实习概述 1.6 / 自我评价 1.7（两页）1.5（一页）
-_SKILL_LH = 1.6
-_OVERVIEW_LH = 1.6
+# 特殊行高的板块（模板独立 line-height；技能行一页继承 body 行高，两页独立 1.6）
+_SKILL_LH = {"one-page": None, "two-pages": 1.6}   # None → 继承 body[data-density] --lheight
+_OVERVIEW_LH = {"one-page": 1.5, "two-pages": 1.6}
 _SUMMARY_LH = {"one-page": 1.5, "two-pages": 1.7}
 
 _PT2MM = 25.4 / 72.0    # pt → mm
 _PX2PT = 0.75           # px → pt
-_SAFETY = 1.45          # 内容行安全系数（中英混排换行 + 标点禁行首 + LLM 输出波动）
-_LI_WRAP = 1.20         # 要点（li）文本换行损耗系数（中英混排 + 词不断行 + 标点禁则）
+_SAFETY = 1.2           # 内容波动安全系数（LLM 输出长度波动；估算已含行高/边距结构性校准）
+_EST_SCALE = 0.80       # 估算校准系数（K 系数：浏览器实测反推，估算高度 ≈ 实际渲染；一页/两页共用）
 
 
 def _content_usage(resume: dict, page_option: str, density: str, watermark: bool) -> dict:
@@ -91,35 +91,39 @@ def _content_usage(resume: dict, page_option: str, density: str, watermark: bool
     row_margin = geo.get("rowMarginPx", 3) * _PX2PT * _PT2MM        # .skill-row/.honor{margin-top}
     ov_margin = geo.get("overviewMarginPx", 3) * _PX2PT * _PT2MM    # .duty-overview{margin-top}
     footer_h = 8.0 if page_option == "two-pages" else 0.0           # 两页版 .page-footer（margin+padding+行高）
-    lh_skill = style["fontPt"] * _SKILL_LH * _PT2MM
-    lh_ov = style["fontPt"] * _OVERVIEW_LH * _PT2MM
+    lh_skill = style["fontPt"] * (_SKILL_LH.get(page_option) or style["lheight"]) * _PT2MM
+    lh_ov = style["fontPt"] * _OVERVIEW_LH.get(page_option, 1.5) * _PT2MM
     lh_sum = style["fontPt"] * _SUMMARY_LH.get(page_option, 1.5) * _PT2MM
     sec_h = fixed["secTitle"] + gap
 
+    def eff_w(s: str) -> float:               # 等效中文字宽（中文 1.0 / ASCII≈0.55，与生成规范 §2.6 一致）
+        return sum(1.0 if ord(c) > 0x2E80 else 0.55 for c in str(s or ""))
+
     def tlines(text, li=False) -> int:
         w = max(1, cpl - (li_cut if li else 0))
-        n = math.ceil(len(str(text or "")) / w)
-        if li and n > 1:
-            n = math.ceil(n * _LI_WRAP)     # 要点：中英混排/词不断行/标点禁则 → 行数上浮
+        n = math.ceil(eff_w(text) / w)
         return max(1, n)
 
-    blocks = []                       # [(高度 mm, 是否 avoid 条目)]
-    blocks.append((fixed["header"] + fixed["contact"], False))
+    blocks = []                       # [(高度 mm, 是否 avoid 条目, 板块名)]
+    blocks.append((fixed["header"] + fixed["contact"], False, "header"))
 
-    def add_section(item_blocks):
+    def add_section(name, item_blocks):
         if not item_blocks:
             return
         # 板块标题与首个条目绑定为一块（keep-with-next：标题不孤悬页尾，
         # 与模板 .sec-title{page-break-after:avoid} 保持一致）
         first_h, first_avoid = item_blocks[0]
-        blocks.append((sec_h + first_h, first_avoid))
-        blocks.extend(item_blocks[1:])
+        blocks.append((sec_h + first_h, first_avoid, name))
+        blocks.extend((h, a, name) for h, a in item_blocks[1:])
 
-    add_section([(fixed["itemHead"] + item_margin, True)
-                 for _ in (resume.get("education") or [])])                                 # 教育
-    add_section([(tlines(h.get("name")) * lh + row_margin, False)
-                 for h in (resume.get("honor") or [])])                                     # 荣誉
-    for it in resume.get("internship") or []:                                               # 实习（每段一个 avoid 条目）
+    add_section("education", [(fixed["itemHead"] + item_margin, True)
+                              for _ in (resume.get("education") or [])])                        # 教育
+    # 荣誉（行内 inline 排列，按总宽度折行估算，而非每条独立一行）
+    honor_names = [h.get("name") for h in (resume.get("honor") or [])
+                   if str(h.get("name") or "").strip()]
+    if honor_names:
+        add_section("honor", [(tlines("、".join(honor_names)) * lh + row_margin, False)])
+    for it in resume.get("internship") or []:                                                   # 实习（每段一个 avoid 条目）
         item_h = fixed["itemHead"] + item_margin + body_margin
         if str(it.get("overview") or "").strip():
             item_h += ov_margin + tlines(it.get("overview")) * lh_ov
@@ -128,8 +132,8 @@ def _content_usage(resume: dict, page_option: str, density: str, watermark: bool
             item_h += li_margin                               # ul{margin-top}
         item_h += sum(tlines(d.get("text"), li=True) * lh + li_margin
                       for d in duties)
-        add_section([(item_h, True)])
-    for p in resume.get("project") or []:                                                   # 项目（每个 avoid 条目）
+        add_section("internship", [(item_h, True)])
+    for p in resume.get("project") or []:                                                       # 项目（每个 avoid 条目）
         item_h = fixed["itemHead"] + item_margin + body_margin
         stack = [str(t) for t in (p.get("techStack") or []) if str(t).strip()]
         if stack:
@@ -139,7 +143,7 @@ def _content_usage(resume: dict, page_option: str, density: str, watermark: bool
             item_h += li_margin                               # ul{margin-top}
         item_h += sum(tlines(x.get("text"), li=True) * lh + li_margin
                       for x in items)
-        add_section([(item_h, True)])
+        add_section("project", [(item_h, True)])
     # 技能（每类一行，名称过长时按多行估算）
     skill_groups: dict = {}
     for s in (resume.get("skill") or []):
@@ -147,26 +151,31 @@ def _content_usage(resume: dict, page_option: str, density: str, watermark: bool
             skill_groups.setdefault(str(s.get("category") or "其他"), []).append(str(s.get("name")))
     skill_blocks = [(tlines("、".join(names)) * lh_skill + row_margin, False)
                     for names in skill_groups.values()]
-    add_section(skill_blocks)                                                               # 技能
-    add_section([(tlines(s.get("text")) * lh_sum, False)
-                 for s in (resume.get("summary") or [])])                                   # 自我评价
+    add_section("skill", skill_blocks)                                                           # 技能
+    add_section("summary", [(tlines(s.get("text")) * lh_sum, False)
+                            for s in (resume.get("summary") or [])])                             # 自我评价
     tail = (fixed["watermark"] if watermark else 0) + fixed["safe"] + footer_h               # 水印 + 安全留白 + 页脚
     if tail:
-        blocks.append((tail, False))
+        blocks.append((tail, False, "tail"))
 
-    # 内容行安全系数（仅内容块，不动固定块）
-    blocks = [(h * _SAFETY, a) if not (i == 0 or i == len(blocks) - 1) else (h, a)
-              for i, (h, a) in enumerate(blocks)]
+    # 估算校准：先消除结构性偏差（_EST_SCALE），再叠加内容波动余量（_SAFETY，仅内容块）
+    blocks = [(h * _EST_SCALE, a, n) for h, a, n in blocks]
+    blocks = [(h * _SAFETY, a, n) if not (i == 0 or i == len(blocks) - 1) else (h, a, n)
+              for i, (h, a, n) in enumerate(blocks)]
 
     pages, last_fill = _paginate(blocks, usable_h)
-    return {"pages": pages, "lastFill": last_fill, "total": usable_h}
+    # 分页标识按单页可用高模拟（两页版总高 = 2×单页，需除以页数还原单页边界）
+    page_h_single = geo["height"] / geo.get("pages", 1) - 2 * geo["margin"]
+    break_section = _page_break_section(blocks, page_h_single)
+    return {"pages": pages, "lastFill": last_fill, "total": usable_h,
+            "breakSection": break_section}   # breakSection: 第 2 页起首板块名（两页版分页标识）
 
 
 def _paginate(blocks, page_h: float):
     """模拟分页：avoid 条目放不下整块推页（空隙计入页数），返回 (页数, 末页填充度)。"""
     cur = 0.0
     pages = 1
-    for h, avoid in blocks:
+    for h, avoid, _name in blocks:
         h = min(h, page_h)                    # 防御：单块超页按整页计
         if avoid and cur > 0 and cur + h > page_h:
             pages += 1
@@ -178,6 +187,29 @@ def _paginate(blocks, page_h: float):
         else:
             cur += h
     return pages, (cur / page_h if page_h else 1.0)
+
+
+def _page_break_section(blocks, page_h: float) -> Optional[str]:
+    """两页版分页标识：模拟分页，返回第 2 页起首板块名（header/tail 不参与）。
+
+    与 _paginate 同口径：avoid 条目放不下整块推页；header（首块）恒在第 1 页，
+    找到第一个「完整落在第 2 页」的板块即分页点，用于装配插入可见分页线。
+    """
+    cur = 0.0
+    for h, avoid, name in blocks:
+        h = min(h, page_h)
+        if avoid and cur > 0 and cur + h > page_h:
+            if name not in ("header", "tail"):
+                return name
+            cur = h
+            continue
+        if cur + h > page_h:
+            if name not in ("header", "tail"):
+                return name
+            cur = h
+        else:
+            cur += h
+    return None
 
 
 def _auto_density(page_option: str, resume: dict, requested: str, watermark: bool = True) -> str:
@@ -254,9 +286,20 @@ class Assembler:
         # 对齐参考简历版式（企小鹅简历：教育背景→证书荣誉→实习经历→项目经验→技能特长→自我评价）；
         # 无数据时对应 _xxx 返回空串，不占位
         effective_density = _auto_density(page_option, resume, density, watermark_mode == "practice")
-        parts = [self._header(resume), self._contact(resume),
-                 self._education(resume), self._honor(resume), self._internship(resume),
-                 self._projects(resume), self._skills(resume), self._summary(resume, page_option)]
+        sections = [("education", self._education(resume)), ("honor", self._honor(resume)),
+                    ("internship", self._internship(resume)), ("project", self._projects(resume)),
+                    ("skill", self._skills(resume)), ("summary", self._summary(resume, page_option))]
+        parts = [self._header(resume), self._contact(resume)]
+        # 两页版分页标识：在估算的第 2 页起首板块前插入可见分页线（页面预览可分辨分页位置）
+        break_section = None
+        if page_option == "two-pages":
+            usage = _content_usage(resume, page_option, effective_density, watermark_mode == "practice")
+            break_section = usage.get("breakSection")
+        for sec_name, part in sections:
+            if sec_name == break_section and part:
+                parts.append('<div class="page-mark">第 1 页 结束 · 第 2 页 开始</div>')
+            if part:
+                parts.append(part)
         if watermark_mode == "practice":
             parts.append(self._watermark())
 

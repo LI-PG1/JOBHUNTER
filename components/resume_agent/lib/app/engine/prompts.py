@@ -112,22 +112,36 @@ def _estimated_protocol() -> str:
 
 
 def summary_messages(user_brief: dict, rules: dict, factsheet: dict,
+                     jobs: Optional[List[dict]] = None, max_sentences: int = 2,
                      review_feedback: Optional[str] = None) -> List[dict]:
-    """自我评价生成（第一层）：最多 2 句，简洁不重复基本信息，有机呼应目标岗位能力需要。"""
+    """自我评价生成（第一层）：严格按固定句式模板填写（用户定稿，2026-08-20）。
+
+    句式（三句结构，句数由页版决定）：
+      1. 具备【岗位相关能力1】和【岗位相关能力2】，曾在【实习/项目/校园经历】中负责【具体工作】，
+         通过【具体做法】完成【结果或产出】。
+      2. 能够较快理解任务要求，并根据反馈及时调整工作方式。
+      3. 希望应聘【目标岗位】，继续发挥自己在【相关方向】上的经验和优势。
+    """
     core = factsheet.get("coreSkills") or []
     focus = factsheet.get("jdFocus") or ""
+    direction = factsheet.get("direction") or ""
+    target = (jobs[0].get("title") if jobs and jobs[0].get("title") else "").strip()
     jd_ref = ""
     if core or focus:
         jd_ref = (
             "【目标岗位能力需要（来自 JD 分析）】\n"
             f"岗位核心技能：{', '.join(core)}\n岗位核心诉求：{focus}\n"
-            "自我评价应自然呼应其中 2~3 项能力，避免逐条罗列。"
+            "句式 1 的能力 1/能力 2 从上述核心技能中选取最贴合的两项，避免逐条罗列。"
         )
     system = SYSTEM_PERSONA + (
-        "\n\n你是简历自我评价撰写师：写 1~2 句简洁有力的自我评价，一句话讲清一个点（自然成句即可，无需逐字计数）。"
-        "第一句定位：突出与目标岗位匹配的核心能力与真实经验；第二句（可选）体现工作方式/学习能力/责任心。"
-        "要求：不重复姓名、年龄、联系方式、学校名称等基本信息；不虚构奖项与经历；"
-        "有机呼应目标岗位的能力需要，而非泛泛而谈。输出严格 JSON。"
+        "\n\n你是简历自我评价撰写师。自我评价**严格套用以下固定句式模板**，只替换【】内的内容，不得改变句式结构、顺序与标点：\n"
+        "句式 1：具备【岗位相关能力1】和【岗位相关能力2】，曾在【实习/项目/校园经历】中负责【具体工作】，"
+        "通过【具体做法】完成【结果或产出】。\n"
+        "句式 2：能够较快理解任务要求，并根据反馈及时调整工作方式。\n"
+        "句式 3：希望应聘【目标岗位】，继续发挥自己在【相关方向】上的经验和优势。\n"
+        f"输出句数：{max_sentences} 句（按 1→2→3 顺序截取，句式 2、3 可直接使用不变量，无需改写）。\n"
+        "要求：能力/工作/做法/产出取自用户真实经历，不虚构奖项与经历；"
+        "不重复姓名、年龄、联系方式、学校名称等基本信息。输出严格 JSON。"
     )
     user = f"""{_estimated_protocol()}
 
@@ -139,9 +153,11 @@ def summary_messages(user_brief: dict, rules: dict, factsheet: dict,
 【风格参考】{rules.get('tone', '')}
 
 【JSON 输出结构】
-{{"sentences": [{{"text": "自我评价句子（40~80 字）", "estimatedLines": 1}}]}}
+{{"sentences": [{{"text": "按句式填写的自我评价句子（含句式 2/3 不变量时直接输出完整句）", "estimatedLines": 1}}]}}
 
-仅输出 JSON。"""
+仅输出 JSON；句子必须与给定句式一一对应。"""
+    if target:
+        user += f"\n\n【目标岗位】{target}（句式 3 的【目标岗位】使用该岗位名；【相关方向】使用{direction or '职业方向'}）"
     if review_feedback:
         user += f"\n\n{review_feedback}"
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
