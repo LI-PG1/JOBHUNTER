@@ -20,6 +20,62 @@ DENSITY_ORDER = ["compact", "normal", "loose"]   # 紧凑 → 松散（adjust �
 WATERMARK_TEXT = "本简历部分内容由 AI 生成，请确认真实性后再投递"
 SKILL_CATEGORY_ORDER = ["专业技能", "工具与框架", "语言能力"]
 
+# 荣誉等分行的全角字符预算（含分隔符「 · 」与年份，如「香港城市大学研究生入学奖学金 · 2026」）。
+# 等分列宽 = (页面宽 - 2×边距) / 4；两页版字号 10.5pt（loose）约 3.7mm/字 → 每列约 10.7 字。
+# 实测：12 字荣誉名（香港城市大学研究生入学奖学金）单列放不下折行 → 引擎按预算截断。
+_HONOR_UNIT = 3.7        # 每全角字符宽度（mm，两页版 loose 字号 10.5pt 实测）
+_HONOR_TIME_EXTRA = 1.5  # 「 · 2026」等时间后缀占用（全角字单位）
+_HONOR_ELLIPSIS = "…"
+
+# 荣誉名机构/赛事简称映射（有序子串替换，长词在前；未命中走预算截断）
+_HONOR_ABBR_MAP = [
+    # 高校（6 字以上在前，避免「香港城市大学」被「香港」类误截）
+    ("中国科学技术大学", "中科大"),
+    ("哈尔滨工业大学", "哈工大"),
+    ("北京航空航天大学", "北航"),
+    ("北京理工大学", "北理工"),
+    ("西安交通大学", "西安交大"),
+    ("上海交通大学", "上海交大"),
+    ("中国人民大学", "人大"),
+    ("大连理工大学", "大工"),
+    ("西北工业大学", "西工大"),
+    ("电子科技大学", "电子科大"),
+    ("香港城市大学", "港城大"),
+    ("香港理工大学", "港理工"),
+    ("香港科技大学", "港科大"),
+    ("香港中文大学", "港中大"),
+    ("武汉大学", "武大"),
+    ("华中科技大学", "华科"),
+    ("中山大学", "中大"),
+    ("厦门大学", "厦大"),
+    ("四川大学", "川大"),
+    ("山东大学", "山大"),
+    ("吉林大学", "吉大"),
+    ("兰州大学", "兰大"),
+    ("东南大学", "东大"),
+    ("天津大学", "天大"),
+    ("同济大学", "同济"),
+    ("重庆大学", "重大"),
+    ("湖南大学", "湖大"),
+    ("中南大学", "中南"),
+    ("北京大学", "北大"),
+    ("清华大学", "清华"),
+    ("浙江大学", "浙大"),
+    ("复旦大学", "复旦"),
+    ("南京大学", "南大"),
+    # 赛事/奖项（含机构前缀的荣誉名）
+    ("全国大学生数学建模竞赛", "全国数模竞赛"),
+    ("美国大学生数学建模竞赛", "美赛"),
+    ("大学生数学建模竞赛", "数模竞赛"),
+    ("数学建模竞赛", "数模竞赛"),
+    ("全国大学生英语竞赛", "全国英语竞赛"),
+    ("研究生入学奖学金", "研究生奖学金"),
+    ("省级一等奖", "省一等奖"),
+    ("省级二等奖", "省二等奖"),
+    ("省级三等奖", "省三等奖"),
+    ("国家级一等奖", "国一等奖"),
+]
+
 # 各页面选项排版参数（mm/pt，与模板 CSS 完全一致）：
 # 一页版 resume-1page.html：@page margin 12mm；两页版 resume-2pages.html：@page margin 18mm。
 # 字号/行距/区块间距/列表缩进来自对应模板的 body[data-density] 样式。
@@ -468,17 +524,33 @@ class Assembler:
         return f'<div class="section" id="sec-skills">\n  <div class="sec-title">技能特长</div>\n{rows}\n</div>'
 
     def _honor(self, resume: dict) -> str:
+        page_option = resume.get("pageOption", "one-page")
         parts = []
         for h in (resume.get("honor") or []):
             name = str(h.get("name") or "").strip()
             if not name:
                 continue
-            seg = " · ".join(x for x in (_esc(name), _esc(h.get("time"))) if x)
+            seg = " · ".join(x for x in (_esc(self._abbr_honor(name, page_option)), _esc(h.get("time"))) if x)
             parts.append(f'    <span class="honor">{seg}</span>')
         if not parts:
             return ""   # 空区块删除
         return ('<div class="section" id="sec-honors">\n  <div class="sec-title">证书荣誉</div>\n'
                 '  <div class="honors">\n' + "\n".join(parts) + "\n  </div>\n</div>")
+
+    @staticmethod
+    def _abbr_honor(name: str, page_option: str) -> str:
+        """荣誉名智能缩写：机构/赛事简称映射（子串替换）+ 超预算截断兜底（保持等分单行，用户定稿 2026-08-20）。"""
+        abbr = name
+        for full, short in _HONOR_ABBR_MAP:
+            abbr = abbr.replace(full, short)
+        # 等分列宽预算（全角字符）：列宽 mm / 字宽 mm，预留时间后缀
+        geo = _LAYOUT.get(page_option, _LAYOUT["one-page"])
+        col_mm = (geo["width"] - 2 * geo["margin"]) / 4 - 10 * _PX2PT * _PT2MM   # 减 padding-right 10px
+        font_mm = geo["density"]["loose"]["fontPt"] * _PT2MM
+        budget = max(4, int(col_mm / font_mm) - int(_HONOR_TIME_EXTRA))
+        if len(abbr) <= budget:
+            return abbr
+        return abbr[:budget - 1].rstrip("、，。 ") + _HONOR_ELLIPSIS
 
     def _watermark(self) -> str:
         return f'<div class="watermark on" id="watermark">{_esc(WATERMARK_TEXT)}</div>'
