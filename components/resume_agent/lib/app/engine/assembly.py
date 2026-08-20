@@ -24,7 +24,7 @@ SKILL_CATEGORY_ORDER = ["专业技能", "工具与框架", "语言能力"]
 # 等分列宽 = (页面宽 - 2×边距) / 4；两页版字号 10.5pt（loose）约 3.7mm/字 → 每列约 10.7 字。
 # 实测：12 字荣誉名（香港城市大学研究生入学奖学金）单列放不下折行 → 引擎按预算截断。
 _HONOR_UNIT = 3.7        # 每全角字符宽度（mm，两页版 loose 字号 10.5pt 实测）
-_HONOR_TIME_EXTRA = 1.5  # 「 · 2026」等时间后缀占用（全角字单位）
+_HONOR_TIME_EXTRA = 2.5  # 「·2026」等时间后缀占用（全角字单位：点 ≈0.5 + 4 半角数字 ×0.5 ≈ 2.5）
 _HONOR_ELLIPSIS = "…"
 
 # 荣誉名机构/赛事简称映射（有序子串替换，长词在前；未命中走预算截断）
@@ -41,6 +41,7 @@ _HONOR_ABBR_MAP = [
     ("西北工业大学", "西工大"),
     ("电子科技大学", "电子科大"),
     ("香港城市大学", "港城大"),
+    ("港城大", "城大"),
     ("香港理工大学", "港理工"),
     ("香港科技大学", "港科大"),
     ("香港中文大学", "港中大"),
@@ -65,6 +66,7 @@ _HONOR_ABBR_MAP = [
     ("南京大学", "南大"),
     # 赛事/奖项（含机构前缀的荣誉名）
     ("全国大学生数学建模竞赛", "全国数模竞赛"),
+    ("全国数模竞赛", "全国数模"),
     ("美国大学生数学建模竞赛", "美赛"),
     ("大学生数学建模竞赛", "数模竞赛"),
     ("数学建模竞赛", "数模竞赛"),
@@ -105,7 +107,7 @@ _LAYOUT = {
         "density": {   # 与 resume-2pages.html CSS 同步
             "compact": {"fontPt": 9.5, "lheight": 1.4, "gapPx": 9, "liIndentPx": 12, "liMarginPx": 1},
             "normal": {"fontPt": 10.0, "lheight": 1.5, "gapPx": 14, "liIndentPx": 16, "liMarginPx": 2},
-            "loose": {"fontPt": 10.5, "lheight": 1.62, "gapPx": 20, "liIndentPx": 20, "liMarginPx": 4},
+            "loose": {"fontPt": 10.5, "lheight": 1.66, "gapPx": 22, "liIndentPx": 20, "liMarginPx": 4},
         },
     },
 }
@@ -152,7 +154,7 @@ def _content_usage(resume: dict, page_option: str, density: str, watermark: bool
     lh_sum = style["fontPt"] * _SUMMARY_LH.get(page_option, 1.5) * _PT2MM
     sec_h = fixed["secTitle"] + gap
 
-    def eff_w(s: str) -> float:               # 等效中文字宽（中文 1.0 / ASCII≈0.55，与生成规范 §2.6 一致）
+    def eff_w(s: str) -> float:               # 等效中文字宽（中文 1.0 / ASCII≈0.55，与生成规范 §2.8 一致）
         return sum(1.0 if ord(c) > 0x2E80 else 0.55 for c in str(s or ""))
 
     def tlines(text, li=False) -> int:
@@ -530,7 +532,7 @@ class Assembler:
             name = str(h.get("name") or "").strip()
             if not name:
                 continue
-            seg = " · ".join(x for x in (_esc(self._abbr_honor(name, page_option)), _esc(h.get("time"))) if x)
+            seg = "·".join(x for x in (_esc(self._abbr_honor(name, page_option)), _esc(h.get("time"))) if x)
             parts.append(f'    <span class="honor">{seg}</span>')
         if not parts:
             return ""   # 空区块删除
@@ -547,7 +549,8 @@ class Assembler:
         geo = _LAYOUT.get(page_option, _LAYOUT["one-page"])
         col_mm = (geo["width"] - 2 * geo["margin"]) / 4 - 10 * _PX2PT * _PT2MM   # 减 padding-right 10px
         font_mm = geo["density"]["loose"]["fontPt"] * _PT2MM
-        budget = max(4, int(col_mm / font_mm) - int(_HONOR_TIME_EXTRA))
+        # 名称与时间后缀同列共存：列宽预算扣除时间占用后再算名称字符数（ceil 向下取整，宁短勿折）
+        budget = max(4, int(col_mm / font_mm - _HONOR_TIME_EXTRA))
         if len(abbr) <= budget:
             return abbr
         return abbr[:budget - 1].rstrip("、，。 ") + _HONOR_ELLIPSIS

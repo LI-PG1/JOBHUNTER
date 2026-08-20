@@ -61,7 +61,7 @@
   /* ---------- 条目（教育/实习/项目）：三列等分排列（title 左 / sub 中 / time 右） ---------- */
   .item{margin-top:6px;page-break-inside:avoid}
   .item-head{display:flex;align-items:baseline;gap:8px}
-  .item-title{flex:1 1 0;min-width:0;font-size:10.5pt;font-weight:700}
+  .item-title{flex:1 1 0;min-width:0;font-size:10.5pt;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .item-sub{flex:1 1 0;min-width:0;font-size:9.5pt;color:#374151}
   .item-time{flex:1 1 0;min-width:0;text-align:right;font-size:9pt;color:var(--muted);white-space:nowrap}
   .item-body{font-size:var(--body-size);margin-top:1px;color:#374151}
@@ -163,7 +163,7 @@
       </ul>
     </div>
   </div>
-  <!-- 项目条数按硬性规则：无实习 2 条 / 有实习 1 条（§6.4）；要点数由引擎按空间增减 -->
+  <!-- 项目条数按硬性规则：实习 0/1/2 段 → 一页 2/1/1 条（§6.4）；要点数由引擎按空间增减 -->
 </div>
 
 <!-- ========== 技能特长（必填区块） ========== -->

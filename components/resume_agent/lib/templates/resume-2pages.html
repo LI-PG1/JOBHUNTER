@@ -42,7 +42,7 @@
   /* ---------- 排版层密度档：compact / normal / loose（全部板块全局参与，字号/行距/间距/缩进统一调整） ---------- */
   body[data-density="compact"]{--gap:9px;--lheight:1.4;--body-size:9.5pt;--li-margin:1px;--li-indent:12px}
   body[data-density="normal"]{--gap:14px;--lheight:1.5;--body-size:10pt;--li-margin:2px;--li-indent:16px}
-  body[data-density="loose"]{--gap:20px;--lheight:1.62;--body-size:10.5pt;--li-margin:4px;--li-indent:20px}
+  body[data-density="loose"]{--gap:22px;--lheight:1.66;--body-size:10.5pt;--li-margin:4px;--li-indent:20px}
   /* ---------- 头部（视觉层级 1）：姓名 + 照片（右上） ---------- */
   .header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:10px}
   .name{font-size:20pt;font-weight:700;letter-spacing:1px}
@@ -66,7 +66,7 @@
   /* ---------- 条目（三列等分排列：title 左 / sub 中 / time 右） ---------- */
   .item{margin-top:9px;page-break-inside:avoid}
   .item-head{display:flex;align-items:baseline;gap:8px}
-  .item-title{flex:1 1 0;min-width:0;font-size:11.5pt;font-weight:700}
+  .item-title{flex:1 1 0;min-width:0;font-size:11pt;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .item-sub{flex:1 1 0;min-width:0;font-size:10.5pt;color:#374151}
   .item-time{flex:1 1 0;min-width:0;text-align:right;font-size:10pt;color:var(--muted);white-space:nowrap}
   .item-body{font-size:var(--body-size);margin-top:2px;color:#374151}
