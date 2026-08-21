@@ -388,7 +388,7 @@ class Assembler:
         )
 
     def _photo(self, photo: dict) -> str:
-        # 无照片时保留占位框（虚线 + 「照片」提示，打印自动隐藏），给排版留出照片位
+        # 无照片时保留占位框（虚线 + 「照片」提示，打印/PDF 亦保留），给排版留出一寸照位置
         if not photo or not photo.get("filePath"):
             return '<div class="photo placeholder" id="photo-slot">照片</div>'
         data_url = ""
